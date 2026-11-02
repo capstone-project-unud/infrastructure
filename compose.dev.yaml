@@ -1,5 +1,12 @@
+x-development-logging: &development-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   auth-service:
+    logging: *development-logging
     image: capstone-auth-service:dev
     build:
       dockerfile: Dockerfile.dev
@@ -13,12 +20,14 @@ services:
       - auth-go-build:/home/app/.cache/go-build
     healthcheck:
       test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8081/health]
-      interval: 5s
+      interval: 30s
+      start_interval: 5s
       timeout: 3s
       start_period: 180s
-      retries: 12
+      retries: 3
     tmpfs: [/tmp]
   user-service:
+    logging: *development-logging
     image: capstone-user-service:dev
     build:
       dockerfile: Dockerfile.dev
@@ -32,12 +41,14 @@ services:
       - user-go-build:/home/app/.cache/go-build
     healthcheck:
       test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8082/health]
-      interval: 5s
+      interval: 30s
+      start_interval: 5s
       timeout: 3s
       start_period: 180s
-      retries: 12
+      retries: 3
     tmpfs: [/tmp]
   api-gateway:
+    logging: *development-logging
     image: capstone-api-gateway:dev
     build:
       dockerfile: Dockerfile.dev
@@ -51,12 +62,14 @@ services:
       - gateway-go-build:/home/app/.cache/go-build
     healthcheck:
       test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/health]
-      interval: 5s
+      interval: 30s
+      start_interval: 5s
       timeout: 3s
       start_period: 180s
-      retries: 12
+      retries: 3
     tmpfs: [/tmp]
   frontend:
+    logging: *development-logging
     image: capstone-frontend:dev
     build:
       dockerfile: Dockerfile.dev
@@ -77,10 +90,11 @@ services:
       - frontend-npm-cache:/home/node/.npm
     healthcheck:
       test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:3000/login]
-      interval: 10s
+      interval: 30s
+      start_interval: 5s
       timeout: 5s
       start_period: 180s
-      retries: 12
+      retries: 3
 
 volumes:
   auth-air:

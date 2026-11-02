@@ -21,14 +21,16 @@ Database setiap layanan dikelola melalui akun runtime dan skema masing-masing. K
 | `compose.dev.yaml` | Pengembangan backend dengan Air dan frontend dengan Nuxt dev server |
 | `scripts/bootstrap.py` | Penyiapan role database, skema, migrasi, dan konfigurasi lokal |
 | `scripts/seed_admin.py` | Pembuatan administrator awal melalui API internal |
-| `scripts/Start-Dev.ps1` dan `Stop-Dev.ps1` | Pengelolaan proses pengembangan pada Windows |
+| `scripts/Start-Dev.ps1` dan `Stop-Dev.ps1` | Menjalankan dan menghentikan Docker development dengan Air |
+| `scripts/Watch-ServiceStatus.ps1` | Pemantauan keadaan container secara berkala |
+| `scripts/Watch-Requests.ps1` | Access log HTTP lintas layanan pada terminal terpisah |
 | `scripts/integration_test.py` | Pengujian integrasi autentikasi dan pengelolaan pengguna |
 | `scripts/frontend_smoke.py` | Pemeriksaan HTTP halaman dan sesi melalui Nuxt |
 | `docs/` | Arsitektur, pemetaan kebutuhan, dan catatan verifikasi |
 
 ## Lingkungan Pengembangan
 
-Struktur direktori yang digunakan adalah `backend/auth-service`, `backend/user-service`, `backend/api-gateway`, `frontend`, dan `infrastructure` dalam satu workspace. Persyaratan meliputi Go 1.26 atau lebih baru, Python 3.12 atau lebih baru, Node.js sesuai `frontend/package.json`, serta dua database PostgreSQL yang telah tersedia.
+Struktur direktori yang digunakan adalah `backend/auth-service`, `backend/user-service`, `backend/api-gateway`, `frontend`, dan `infrastructure` dalam satu workspace. Pengembangan menggunakan Docker Desktop dengan Linux containers. Go dan Node.js dijalankan di dalam container; Python 3.12 diperlukan untuk bootstrap database pada host. Kedua database PostgreSQL sudah harus tersedia.
 
 Konfigurasi administratif mengikuti `.env.example`. Script bootstrap menyiapkan role dan skema pada database yang ditentukan, menerapkan migrasi dengan pemeriksaan checksum, serta menghasilkan `.env` untuk setiap aplikasi. Script tidak membuat atau menghapus database. Kredensial dan berkas runtime tidak disertakan dalam Git.
 
@@ -40,11 +42,15 @@ python infrastructure/scripts/bootstrap.py
 .\infrastructure\scripts\Start-Dev.ps1
 ```
 
-Skrip `Stop-Dev.ps1` menghentikan proses pengembangan yang tercatat. Alternatif berbasis container tersedia melalui `docker compose -f infrastructure/compose.yaml up --build -d`; inisialisasi administrator menggunakan profil `init` pada Compose. Aplikasi lokal diakses melalui `http://localhost:3000`.
+`Start-Dev.ps1` otomatis membuka jendela PowerShell **Capstone - Status Container** untuk menjalankan Compose development, menunggu health check, memastikan admin awal tersedia, lalu memeriksa status setiap sepuluh detik. Setelah siap, jendela kedua **Capstone - Request HTTP** dibuka otomatis untuk mengikuti kode respons, method, path, dan durasi request. Tabel status hanya dicetak saat pertama dibuka atau status berubah, tanpa membersihkan layar. Skrip hanya mencatat metadata, tanpa body, query string, atau cookie. `Ctrl+C` menutup pemantauan; `Stop-Dev.ps1` menghentikan container. Aplikasi diakses melalui `http://localhost:3000`.
+
+Opsi `-NoWatch` menjalankan startup dan status awal pada terminal asal tanpa membuka jendela tambahan; `-Build` membangun ulang image Docker. `Watch-Requests.ps1` dapat dijalankan untuk membuka kembali jendela log yang ditutup. Viewer menampilkan pesan menunggu sampai ada request dari aplikasi. Panduan lengkap workspace tersedia di `docs/menjalankan-proyek.md` pada root workspace.
 
 ## Pengembangan Docker
 
 Untuk pengembangan di dalam Docker, jalankan `docker compose -f infrastructure/compose.yaml -f infrastructure/compose.dev.yaml up --build -d` dari root workspace. Ketiga backend memakai Air v1.67.4 untuk memantau dan mengompilasi ulang source Go. Frontend menggunakan Nuxt dev server. Source terhubung melalui bind mount; cache kompilasi dan dependensi disimpan dalam volume terpisah. Konfigurasi dasar tanpa berkas tambahan menjalankan hasil build tanpa pemantauan source.
+
+Health check rutin berjalan setiap 30 detik; selama masa awal digunakan interval 5 detik. Log Docker dibatasi tiga berkas berukuran sekitar 10 MB per container development. Image dan cache build tetap disimpan agar startup berikutnya tidak mengunduh atau mengompilasi seluruh dependensi kembali.
 
 ## Pengujian dan Batas Implementasi
 

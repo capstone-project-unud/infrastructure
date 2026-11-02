@@ -90,3 +90,30 @@ Perubahan mencakup ukuran teks, penghapusan keterangan berulang, fokus form logi
 Pemeriksaan HTTP diulang pada server lokal dan container Docker. Koneksi Docker diarahkan ke IPv4 saat pengujian karena server lokal memakai `::1` pada port 3000. Semua container pengujian mencapai kondisi healthy.
 
 Delivery Gate antislop: pemeriksaan kode dan HTTP mendukung penghapusan elemen tanpa fungsi, penggunaan data API, nama aksesibel kontrol, status loading/error/empty, dan alasan visual yang tertulis dalam panduan desain. Purpose-Gate dan arah desain tetap menggunakan Urbanist, sage pada ilustrasi, aksen ungu pada tindakan, serta elevasi sidebar sesuai permintaan pemilik. Pemeriksaan visual Hard Gate, reflow, keyboard, dan click-through R-35 tetap **pending**: daftar browser tersedia kosong dan upaya membuka browser pratinjau mengembalikan “Browser is not available”. Belum ada klaim lulus untuk tampilan responsif atau interaksi aktual. Daftar pemeriksaan manual di atas tetap berlaku, ditambah toggle sidebar, persistensi setelah refresh, dan fokus email/kata sandi yang tidak menimpa label.
+
+## Pemantauan development dan access log
+
+`Start-Dev.ps1` memakai Docker dengan Air. Startup menunggu health check, menjalankan seed admin yang idempotent, lalu membuka tabel status berkala. `Stop-Dev.ps1` menghentikan container. Pada penyederhanaan berikutnya, mode lokal, skrip startup/stop lokal, dan pemasang Node lokal dihapus sesuai permintaan pemilik. Seluruh perintah development kini menggunakan Docker tanpa opsi pemilihan mode.
+
+- PASS: parser PowerShell memeriksa seluruh `.ps1` dan `.psm1` tanpa kesalahan sintaks.
+- PASS: `Start-Dev.ps1 -NoWatch` menyalakan keempat container hingga healthy dan mengonfirmasi administrator sudah tersedia.
+- PASS: status membedakan container belum dibuat, aktif, dan berhenti. Penghentian sementara user-service menghasilkan status Berhenti dan kode keluar 0; layanan kemudian dipulihkan hingga healthy.
+- PASS: pemantauan status pada proses PowerShell terpisah menghasilkan beberapa pembaruan dengan interval satu detik. Viewer request pada proses terminal kedua menangkap request baru melalui mode follow. Setelah proses monitor diakhiri, seluruh container tetap aktif dan healthy.
+- PASS: kondisi Docker tidak ditemukan ditampilkan untuk keempat layanan. Kondisi Docker tidak dapat diakses memiliki cabang status tersendiri; daemon tidak sengaja dimatikan sebagai bagian pengujian.
+- PASS: format request menampilkan waktu WITA, status, method, layanan, path, dan durasi. Filter errors-only, pilihan layanan, health opt-in, log tidak valid, dan Tail 0 diperiksa.
+- PASS: `go test ./...` pada ketiga backend, termasuk pengujian status akhir 200/400/401/403/404/500, pemulihan panic, dan pencegahan pencatatan body, query, cookie, Authorization, serta pesan error privat.
+- PASS: typecheck frontend dalam Docker dan build produksi pada host. Logger Nuxt menggunakan event finish pada respons Node agar respons error yang ditulis langsung oleh Nitro tetap tercatat; penolakan Origin 403 diperiksa melalui request HTTP nyata dan viewer log.
+
+Access log dari keempat layanan terlihat pada pengujian HTTP. Jalur internal juga dicatat, sehingga satu tindakan pengguna dapat menghasilkan beberapa baris. Health check disembunyikan oleh viewer secara bawaan. Aset yang dilayani langsung oleh Vite dan WebSocket HMR berada di luar cakupan access log Nitro. Pemeriksaan ini tidak mengubah status verifikasi visual UI yang masih pending pada bagian sebelumnya.
+
+## Pengurangan aktivitas monitor dan batas log
+
+Snapshot saat empat container development berjalan mencatat RAM sekitar 545 MiB: frontend 423 MiB, gateway 21.43 MiB, user-service 29.98 MiB, dan auth-service 70.46 MiB. Ini angka sesaat dari `docker stats`, tidak termasuk overhead Docker Desktop/WSL dan dapat naik selama kompilasi atau menerima request. `docker system df` mencatat image global 1.605 GB, volume 1.838 GB, serta build cache 4.769 GB; angka tersebut mencakup seluruh lingkungan Docker. Ukuran image bertag tidak dijumlahkan karena lapisan dapat dipakai bersama.
+
+- Pembacaan status memanggil Compose pada host dan tidak mengirim request tambahan ke API atau Neon. Tiga pengukuran pembacaan status adalah 706, 415, dan 436 ms.
+- Interval monitor bawaan menjadi 10 detik. Tabel hanya dicetak saat pembukaan atau isi status berubah. `Clear-Host` dihapus agar layar tidak berkedip penuh.
+- Health check development rutin menjadi 30 detik. Interval awal tetap 5 detik melalui `start_interval`, dengan masa awal 180 detik. Setelah masa awal, tiga kegagalan berturut-turut menandai kondisi unhealthy.
+- Driver log development memakai json-file, maksimum tiga berkas sekitar 10 MB per container. Keempat layanan memiliki batas log nominal sekitar 120 MB; batas ini tidak berlaku untuk image, volume, dan cache.
+- PASS: penggabungan Compose dan sintaks PowerShell. Fixture tiga polling dengan dua keadaan berbeda menghasilkan tepat dua tampilan status, tanpa pembersihan terminal. Default interval 10 detik diperiksa dari parameter skrip. Perubahan konfigurasi container diterapkan saat startup berikutnya; container aktif tidak dibuat ulang selama pemeriksaan ini. Cache tidak dihapus.
+
+Rujukan: [healthcheck Compose](https://docs.docker.com/reference/compose-file/services/#healthcheck) dan [Docker build cache](https://docs.docker.com/build/cache/).
