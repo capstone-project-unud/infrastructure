@@ -18,6 +18,7 @@ Database setiap layanan dikelola melalui akun runtime dan skema masing-masing. K
 | Lokasi | Kegunaan |
 | --- | --- |
 | `compose.yaml` | Susunan layanan, jaringan, dan pemeriksaan kesiapan container |
+| `compose.dev.yaml` | Pengembangan backend dengan Air dan frontend dengan Nuxt dev server |
 | `scripts/bootstrap.py` | Penyiapan role database, skema, migrasi, dan konfigurasi lokal |
 | `scripts/seed_admin.py` | Pembuatan administrator awal melalui API internal |
 | `scripts/Start-Dev.ps1` dan `Stop-Dev.ps1` | Pengelolaan proses pengembangan pada Windows |
@@ -40,6 +41,10 @@ python infrastructure/scripts/bootstrap.py
 ```
 
 Skrip `Stop-Dev.ps1` menghentikan proses pengembangan yang tercatat. Alternatif berbasis container tersedia melalui `docker compose -f infrastructure/compose.yaml up --build -d`; inisialisasi administrator menggunakan profil `init` pada Compose. Aplikasi lokal diakses melalui `http://localhost:3000`.
+
+## Pengembangan Docker
+
+Untuk pengembangan di dalam Docker, jalankan `docker compose -f infrastructure/compose.yaml -f infrastructure/compose.dev.yaml up --build -d` dari root workspace. Ketiga backend memakai Air v1.67.4 untuk memantau dan mengompilasi ulang source Go. Frontend menggunakan Nuxt dev server. Source terhubung melalui bind mount; cache kompilasi dan dependensi disimpan dalam volume terpisah. Konfigurasi dasar tanpa berkas tambahan menjalankan hasil build tanpa pemantauan source.
 
 ## Pengujian dan Batas Implementasi
 

@@ -52,8 +52,41 @@ Daftar click-through yang masih harus diperiksa melalui browser:
 | 375/768/1024/1440 px dan zoom 200% | reflow, target sentuh, tidak ada overflow halaman, teks tidak terpotong |
 | Keyboard / reduced motion | Tab/Shift+Tab/Enter/Space/Escape, focus ring, dialog trap, tanpa transform saat reduce |
 
-Docker CLI tersedia tetapi daemon tidak aktif. Image build, container health, dan alur Compose runtime belum diuji. File Docker tidak dinyatakan telah berjalan.
+Pada pemeriksaan awal, daemon Docker belum aktif. Verifikasi tambahan mode pengembangan Docker dengan Air dijelaskan di bawah. Image dan runtime mode hasil build tanpa Air belum diperiksa dalam verifikasi tambahan ini.
 
 Audit dependency npm pada lockfile saat implementasi melaporkan 14 advisory (2 low, 12 moderate; 0 high/critical), terutama dependency transitif build/archive/glob. Saran otomatis npm mencakup downgrade Nuxt; tidak diterapkan secara paksa karena dapat mengganti framework di luar tujuan setup. Tinjau advisory dan pembaruan yang kompatibel sebelum deployment. Ini catatan pemeriksaan dependency, bukan audit keamanan menyeluruh.
 
 Setup belum mencakup TLS terminator, secret manager production, rate limit terdistribusi, durable provisioning saga, scheduler pembersihan sesi, maupun migrasi data dari SQL monolit. Batas konsistensi lintas database dijelaskan di architecture.md.
+
+## Verifikasi tambahan: pengembangan Docker dengan Air
+
+Docker Desktop diaktifkan dan konfigurasi gabungan `compose.yaml` + `compose.dev.yaml` dijalankan pada Linux containers. Keempat image development berhasil dibangun. Backend memakai Go 1.26 dan Air v1.67.4; frontend memakai Node 22.22.3 dan Nuxt dev server. Tag image pengembangan menggunakan `:dev`.
+
+- Ketiga backend dan frontend mencapai status `healthy`; hanya port frontend 3000 diterbitkan pada loopback host.
+- Pada setiap backend, penambahan berkas Go sementara memicu kompilasi ulang dan pergantian PID binary layanan. ID container dan waktu mulai container tetap sama. Penghapusan berkas uji memicu pemuatan ulang berikutnya. Seluruh berkas uji telah dihapus.
+- `go test ./...` lulus pada auth-service, user-service, dan api-gateway di dalam container. `GOTMPDIR` diarahkan ke volume `.air` agar binary pengujian dapat dieksekusi tanpa mengubah opsi keamanan tmpfs `/tmp`.
+- `npm run typecheck` lulus di dalam container frontend.
+- `frontend_smoke.py` lulus melalui frontend Docker: login, cookie HttpOnly, font lokal, HTML admin/aktivitas/profil, logout, redirect halaman terlindungi, dan penolakan Origin asing.
+- Profil Compose `init` dapat menjalankan `seed-admin` dan mengonfirmasi administrator awal sudah tersedia tanpa membuat akun tambahan.
+- Konfigurasi dasar dan konfigurasi gabungan development lulus `docker compose config --quiet`. Berkas TOML Air berhasil diparse. Direktori `.air` diabaikan Git dan konteks build image.
+
+Verifikasi ini membuktikan pemantauan source dan pemulaian ulang binary Go di dalam Docker. Pemeriksaan visual, WebSocket HMR pada browser, dan interaksi keyboard tetap belum dijalankan. Pengujian integrasi 33 assertion yang dicatat sebelumnya dijalankan pada mode lokal; pada Docker, verifikasi HTTP menggunakan frontend BFF karena port backend tidak dipublikasikan.
+
+## Revisi keterbacaan dan sidebar
+
+Perubahan mencakup ukuran teks, penghapusan keterangan berulang, fokus form login, serta sidebar mengambang yang dapat diperluas atau diminimalkan. Aturan terbaru tersimpan identik pada `docs/design.md` di workspace dan `frontend/design.md`.
+
+| Pemeriksaan | Hasil dan bukti |
+| --- | --- |
+| Build produksi | PASS: Nuxt menyelesaikan build pada host dengan runtime Node proyek, exit 0. Build di container development tidak digunakan sebagai bukti karena direktori `.output` merupakan mount volume dan tidak dapat dihapus oleh proses build. |
+| TypeScript | PASS: `npm run typecheck` di container frontend, exit 0. |
+| Render dan autentikasi | PASS: `frontend_smoke.py` memeriksa login, font lokal, cookie HttpOnly, halaman pengguna/aktivitas/profil, logout, redirect terlindungi, dan penolakan Origin asing. |
+| Preferensi sidebar | PASS: cookie `capstone_sidebar_collapsed=true` menghasilkan sidebar diminimalkan sejak HTML server; tombol memiliki `aria-expanded=false`, tautan ikon memiliki nama aksesibel dan tooltip. Tanpa preferensi tersebut, server menghasilkan sidebar terbuka. Ini menguji render preferensi, bukan klik toggle pada browser. |
+| Penghapusan teks | PASS: pemeriksaan HTML memastikan banner, label ruang kerja, teks footer login, dan elemen footer tidak muncul. |
+| Ukuran teks | PASS: pemindaian deklarasi CSS aplikasi tidak menemukan ukuran teks eksplisit di bawah 14 px. Isi/input 16 px, tombol/navigasi 15 px, metadata 14 px. |
+| Kontras token | PASS: muted/putih 5.94:1, muted/canvas 5.44:1, navigasi aktif 5.56:1, tombol utama 6.49:1, status aktif/putih 7.55:1, placeholder/putih 4.76:1. |
+| Integritas berkas | PASS: `git diff --check` pada frontend dan infrastructure; kedua salinan panduan desain memiliki SHA-256 yang sama. |
+
+Pemeriksaan HTTP diulang pada server lokal dan container Docker. Koneksi Docker diarahkan ke IPv4 saat pengujian karena server lokal memakai `::1` pada port 3000. Semua container pengujian mencapai kondisi healthy.
+
+Delivery Gate antislop: pemeriksaan kode dan HTTP mendukung penghapusan elemen tanpa fungsi, penggunaan data API, nama aksesibel kontrol, status loading/error/empty, dan alasan visual yang tertulis dalam panduan desain. Purpose-Gate dan arah desain tetap menggunakan Urbanist, sage pada ilustrasi, aksen ungu pada tindakan, serta elevasi sidebar sesuai permintaan pemilik. Pemeriksaan visual Hard Gate, reflow, keyboard, dan click-through R-35 tetap **pending**: daftar browser tersedia kosong dan upaya membuka browser pratinjau mengembalikan “Browser is not available”. Belum ada klaim lulus untuk tampilan responsif atau interaksi aktual. Daftar pemeriksaan manual di atas tetap berlaku, ditambah toggle sidebar, persistensi setelah refresh, dan fokus email/kata sandi yang tidak menimpa label.

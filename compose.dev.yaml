@@ -1,0 +1,98 @@
+services:
+  auth-service:
+    image: capstone-auth-service:dev
+    build:
+      dockerfile: Dockerfile.dev
+    working_dir: /app
+    init: true
+    restart: "no"
+    volumes:
+      - ../backend/auth-service:/app
+      - auth-air:/app/.air
+      - auth-go-mod:/go/pkg/mod
+      - auth-go-build:/home/app/.cache/go-build
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8081/health]
+      interval: 5s
+      timeout: 3s
+      start_period: 180s
+      retries: 12
+    tmpfs: [/tmp]
+  user-service:
+    image: capstone-user-service:dev
+    build:
+      dockerfile: Dockerfile.dev
+    working_dir: /app
+    init: true
+    restart: "no"
+    volumes:
+      - ../backend/user-service:/app
+      - user-air:/app/.air
+      - user-go-mod:/go/pkg/mod
+      - user-go-build:/home/app/.cache/go-build
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8082/health]
+      interval: 5s
+      timeout: 3s
+      start_period: 180s
+      retries: 12
+    tmpfs: [/tmp]
+  api-gateway:
+    image: capstone-api-gateway:dev
+    build:
+      dockerfile: Dockerfile.dev
+    working_dir: /app
+    init: true
+    restart: "no"
+    volumes:
+      - ../backend/api-gateway:/app
+      - gateway-air:/app/.air
+      - gateway-go-mod:/go/pkg/mod
+      - gateway-go-build:/home/app/.cache/go-build
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8080/health]
+      interval: 5s
+      timeout: 3s
+      start_period: 180s
+      retries: 12
+    tmpfs: [/tmp]
+  frontend:
+    image: capstone-frontend:dev
+    build:
+      dockerfile: Dockerfile.dev
+    working_dir: /app
+    init: true
+    restart: "no"
+    environment:
+      NODE_ENV: development
+      NUXT_TELEMETRY_DISABLED: "1"
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "500"
+      DEBUG: ""
+    volumes:
+      - ../frontend:/app
+      - frontend-node-modules:/app/node_modules
+      - frontend-nuxt:/app/.nuxt
+      - frontend-output:/app/.output
+      - frontend-npm-cache:/home/node/.npm
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:3000/login]
+      interval: 10s
+      timeout: 5s
+      start_period: 180s
+      retries: 12
+
+volumes:
+  auth-air:
+  auth-go-mod:
+  auth-go-build:
+  user-air:
+  user-go-mod:
+  user-go-build:
+  gateway-air:
+  gateway-go-mod:
+  gateway-go-build:
+  frontend-node-modules:
+  frontend-nuxt:
+  frontend-output:
+  frontend-npm-cache:
