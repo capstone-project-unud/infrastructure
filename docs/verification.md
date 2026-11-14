@@ -97,7 +97,7 @@ Delivery Gate antislop: pemeriksaan kode dan HTTP mendukung penghapusan elemen t
 
 - PASS: parser PowerShell memeriksa seluruh `.ps1` dan `.psm1` tanpa kesalahan sintaks.
 - PASS: `Start-Dev.ps1 -NoWatch` menyalakan keempat container hingga healthy dan mengonfirmasi administrator sudah tersedia.
-- PASS: status membedakan container belum dibuat, aktif, dan berhenti. Penghentian sementara user-service menghasilkan status Berhenti dan kode keluar 0; layanan kemudian dipulihkan hingga healthy.
+- PASS: status membedakan container belum dibuat, aktif, dan berhenti. Penghentian sementara user-service menghasilkan status Berhenti; layanan kemudian dipulihkan hingga healthy.
 - PASS: pemantauan status pada proses PowerShell terpisah menghasilkan beberapa pembaruan dengan interval satu detik. Viewer request pada proses terminal kedua menangkap request baru melalui mode follow. Setelah proses monitor diakhiri, seluruh container tetap aktif dan healthy.
 - PASS: kondisi Docker tidak ditemukan ditampilkan untuk keempat layanan. Kondisi Docker tidak dapat diakses memiliki cabang status tersendiri; daemon tidak sengaja dimatikan sebagai bagian pengujian.
 - PASS: format request menampilkan waktu WITA, status, method, layanan, path, dan durasi. Filter errors-only, pilihan layanan, health opt-in, log tidak valid, dan Tail 0 diperiksa.
@@ -117,3 +117,14 @@ Snapshot saat empat container development berjalan mencatat RAM sekitar 545 MiB:
 - PASS: penggabungan Compose dan sintaks PowerShell. Fixture tiga polling dengan dua keadaan berbeda menghasilkan tepat dua tampilan status, tanpa pembersihan terminal. Default interval 10 detik diperiksa dari parameter skrip. Perubahan konfigurasi container diterapkan saat startup berikutnya; container aktif tidak dibuat ulang selama pemeriksaan ini. Cache tidak dihapus.
 
 Rujukan: [healthcheck Compose](https://docs.docker.com/reference/compose-file/services/#healthcheck) dan [Docker build cache](https://docs.docker.com/build/cache/).
+
+## Terminal terintegrasi VS Code
+
+Alur dua terminal menggunakan `.vscode/tasks.json` pada root workspace. Task build default **Capstone: Start Dev** dijalankan dengan Ctrl+Shift+B. Dependensi berurutan menjalankan startup/status lebih dahulu, lalu viewer request setelah marker kesiapan tampil. Kedua task memakai process PowerShell pada grup terminal terintegrasi `capstone-dev`, panel dedicated, dan satu instance per task. Seluruh pemanggilan `Start-Process`, encoded command, dan flag worker jendela eksternal telah dihapus dari skrip development.
+
+- PASS: JSON task, referensi dependensi, lokasi skrip, grup terminal, batas instance, dan regular expression marker kesiapan diperiksa.
+- PASS: seluruh skrip PowerShell lulus pemeriksaan sintaks. Startup mencapai empat container healthy dan menampilkan marker `Memantau setiap 10 detik;` yang dipakai task status.
+- PASS: viewer berjalan pada terminal tempat skrip dipanggil dan menampilkan pesan menunggu. Request HTTP nyata menghasilkan 200 untuk login dan 401 untuk profil tanpa sesi; baris frontend, gateway, serta user-service muncul pada follower log.
+- Startup menggunakan output Compose plain. Seed admin memakai `--no-deps` setelah startup berhasil agar tidak membuat ulang dependensi yang sudah diperiksa healthy.
+
+Konfigurasi task dan perilaku kedua proses diuji melalui terminal. Pembukaan panel task dengan shortcut pada UI VS Code belum dijalankan melalui alat sesi ini. Jendela PowerShell terpisah bukan bagian dari alur yang didukung.

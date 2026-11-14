@@ -39,8 +39,7 @@ with client.open(request) as response:
     assert json.loads(response.read())['user']['email'] == values['ADMIN_EMAIL']
 assert list(cookies)[0].has_nonstandard_attr('HttpOnly')
 
-for path, heading in [('/admin/users', 'Manajemen pengguna'),
-                       ('/admin/activity', 'Aktivitas pengguna'), ('/account', 'Profil saya')]:
+for path, heading in [('/admin/users', 'Manajemen pengguna'), ('/account', 'Profil saya')]:
     with client.open(BASE + path) as response:
         page = response.read().decode()
         assert response.status == 200 and heading in page

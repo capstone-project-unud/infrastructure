@@ -16,7 +16,7 @@ do {
         $rows | Format-Table -AutoSize | Out-String | Write-Output
         if ($null -eq $previousSnapshot) {
             if (-not $SkipFrontend) { Write-Output 'Aplikasi: http://localhost:3000/login' }
-            Write-Output 'Log request ditampilkan pada terminal kedua yang dibuka otomatis.'
+            Write-Output 'VS Code: Ctrl+Shift+B membuka terminal status dan request secara otomatis.'
             if (-not $Once) { Write-Output "Memantau setiap $RefreshSeconds detik; tabel berikutnya muncul jika status berubah." }
             Write-Output 'Ctrl+C menutup pemantauan; layanan tetap berjalan.'
         }

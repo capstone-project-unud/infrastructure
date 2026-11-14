@@ -5,23 +5,11 @@ param(
     [switch]$ErrorsOnly,
     [switch]$IncludeHealth,
     [switch]$Once,
-    [ValidateRange(30, 1800)][int]$WaitTimeoutSeconds = 300,
-    [Parameter(DontShow = $true)][switch]$InTerminal
+    [ValidateRange(30, 1800)][int]$WaitTimeoutSeconds = 300
 )
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'DevTools.psm1') -Force
 Assert-DevDocker
-if (-not $InTerminal -and -not $Once) {
-    $null = Open-DevTerminal -ScriptFile $PSCommandPath -Title 'Capstone - Request HTTP' -Parameters @{
-        Service = $Service
-        Tail = $Tail
-        ErrorsOnly = [bool]$ErrorsOnly
-        IncludeHealth = [bool]$IncludeHealth
-        WaitTimeoutSeconds = $WaitTimeoutSeconds
-    }
-    Write-Output 'Terminal request HTTP dibuka.'
-    return
-}
 Write-Output 'Request HTTP Docker | waktu WITA | Ctrl+C untuk keluar'
 if (-not $Once) {
     Write-Output 'Menunggu request baru. Buka http://localhost:3000/login dan gunakan aplikasi.'

@@ -34,7 +34,9 @@ Struktur direktori yang digunakan adalah `backend/auth-service`, `backend/user-s
 
 Konfigurasi administratif mengikuti `.env.example`. Script bootstrap menyiapkan role dan skema pada database yang ditentukan, menerapkan migrasi dengan pemeriksaan checksum, serta menghasilkan `.env` untuk setiap aplikasi. Script tidak membuat atau menghapus database. Kredensial dan berkas runtime tidak disertakan dalam Git.
 
-Perintah berikut dijalankan dari root workspace setelah konfigurasi database dan dependensi frontend tersedia:
+Setelah konfigurasi tersedia, buka folder root workspace pada VS Code dan tekan **Ctrl+Shift+B**. Task **Capstone: Start Dev** menjalankan startup/status dan viewer request dalam dua terminal terintegrasi VS Code. Docker Desktop harus aktif.
+
+Untuk instalasi database baru dan startup manual dari root workspace:
 
 ```powershell
 python -m pip install -r infrastructure/requirements.txt
@@ -42,9 +44,9 @@ python infrastructure/scripts/bootstrap.py
 .\infrastructure\scripts\Start-Dev.ps1
 ```
 
-`Start-Dev.ps1` otomatis membuka jendela PowerShell **Capstone - Status Container** untuk menjalankan Compose development, menunggu health check, memastikan admin awal tersedia, lalu memeriksa status setiap sepuluh detik. Setelah siap, jendela kedua **Capstone - Request HTTP** dibuka otomatis untuk mengikuti kode respons, method, path, dan durasi request. Tabel status hanya dicetak saat pertama dibuka atau status berubah, tanpa membersihkan layar. Skrip hanya mencatat metadata, tanpa body, query string, atau cookie. `Ctrl+C` menutup pemantauan; `Stop-Dev.ps1` menghentikan container. Aplikasi diakses melalui `http://localhost:3000`.
+`Start-Dev.ps1` menjalankan Compose development, menunggu health check, memastikan admin awal tersedia, lalu memeriksa status setiap sepuluh detik. Task VS Code membuka terminal **Capstone: Status Container** lebih dahulu dan terminal **Capstone: Request HTTP** setelah startup siap. Tabel status hanya dicetak saat pertama dibuka atau status berubah, tanpa membersihkan layar. Skrip hanya mencatat metadata, tanpa body, query string, atau cookie. `Ctrl+C` menutup pemantauan; `Stop-Dev.ps1` menghentikan container. Aplikasi diakses melalui `http://localhost:3000`.
 
-Opsi `-NoWatch` menjalankan startup dan status awal pada terminal asal tanpa membuka jendela tambahan; `-Build` membangun ulang image Docker. `Watch-Requests.ps1` dapat dijalankan untuk membuka kembali jendela log yang ditutup. Viewer menampilkan pesan menunggu sampai ada request dari aplikasi. Panduan lengkap workspace tersedia di `docs/menjalankan-proyek.md` pada root workspace.
+Opsi `-NoWatch` menjalankan startup dan status awal tanpa loop pemantauan; `-Build` membangun ulang image Docker. Jika menjalankan skrip secara manual, `Watch-Requests.ps1` dijalankan pada terminal terintegrasi kedua. Skrip tidak membuat jendela PowerShell eksternal. Viewer menampilkan pesan menunggu sampai ada request dari aplikasi. Panduan lengkap workspace tersedia di `docs/menjalankan-proyek.md` pada root workspace.
 
 ## Pengembangan Docker
 

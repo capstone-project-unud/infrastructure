@@ -9,32 +9,6 @@ function Get-DevServices {
     $names
 }
 
-function Open-DevTerminal {
-    param(
-        [Parameter(Mandatory)][string]$ScriptFile,
-        [Parameter(Mandatory)][string]$Title,
-        [hashtable]$Parameters = @{}
-    )
-    $scriptPath = (Resolve-Path -LiteralPath $ScriptFile).Path
-    $workspace = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-    $Parameters['InTerminal'] = $true
-    $json = ConvertTo-Json -InputObject $Parameters -Compress
-    $jsonLiteral = "'" + $json.Replace("'", "''") + "'"
-    $pathLiteral = "'" + $scriptPath.Replace("'", "''") + "'"
-    $titleLiteral = "'" + $Title.Replace("'", "''") + "'"
-    $command = @(
-        '$terminalParameters = @{}',
-        ('$terminalData = ConvertFrom-Json -InputObject ' + $jsonLiteral),
-        'foreach ($property in $terminalData.PSObject.Properties) { $terminalParameters[$property.Name] = $property.Value }',
-        ('try { $Host.UI.RawUI.WindowTitle = ' + $titleLiteral + ' } catch { }'),
-        ('& ' + $pathLiteral + ' @terminalParameters')
-    ) -join "`n"
-    # Encoding preserves switch/array arguments and paths containing spaces or apostrophes.
-    $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
-    $shell = (Get-Command powershell.exe -ErrorAction Stop).Source
-    Start-Process -FilePath $shell -ArgumentList "-NoLogo -NoProfile -NoExit -EncodedCommand $encoded" -WorkingDirectory $workspace -WindowStyle Normal -PassThru
-}
-
 function Invoke-DevDockerCapture {
     param([string[]]$Arguments)
     $previousPreference = $ErrorActionPreference
@@ -57,13 +31,13 @@ function Get-DevServiceStatus {
     param([switch]$SkipFrontend)
     $services = @(Get-DevServices -SkipFrontend:$SkipFrontend)
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
-        foreach ($name in $services) { [pscustomobject]@{ Layanan=$name; Status='Docker tidak ditemukan'; Health='-'; Proses='-'; KodeKeluar='-' } }
+        foreach ($name in $services) { [pscustomobject]@{ Layanan=$name; Status='Docker tidak ditemukan'; Health='-'; Proses='-' } }
         return
     }
     $arguments = @('compose') + @(Get-DevComposeArguments) + @('ps', '--all', '--format', 'json')
     $result = Invoke-DevDockerCapture -Arguments $arguments
     if ($result.ExitCode -ne 0) {
-        foreach ($name in $services) { [pscustomobject]@{ Layanan=$name; Status='Docker tidak dapat diakses'; Health='-'; Proses='-'; KodeKeluar='-' } }
+        foreach ($name in $services) { [pscustomobject]@{ Layanan=$name; Status='Docker tidak dapat diakses'; Health='-'; Proses='-' } }
         return
     }
     $containers = @()
@@ -72,13 +46,12 @@ function Get-DevServiceStatus {
     elseif ($json) { $containers = @($json -split "`n" | Where-Object { $_.Trim() } | ForEach-Object { $_ | ConvertFrom-Json }) }
     foreach ($name in $services) {
         $container = $containers | Where-Object { $_.Service -eq $name } | Select-Object -First 1
-        if (-not $container) { [pscustomobject]@{ Layanan=$name; Status='Belum dibuat'; Health='-'; Proses='-'; KodeKeluar='-' }; continue }
+        if (-not $container) { [pscustomobject]@{ Layanan=$name; Status='Belum dibuat'; Health='-'; Proses='-' }; continue }
         $labels = @{ running='Aktif'; exited='Berhenti'; created='Dibuat'; restarting='Restart'; paused='Dijeda'; dead='Gagal'; removing='Dihapus' }
         $state = $labels[$container.State]
         if (-not $state) { $state = $container.State }
         $health = if ($container.Health) { $container.Health } else { '-' }
-        $exitCode = if ($container.State -in @('exited','dead')) { $container.ExitCode } else { '-' }
-        [pscustomobject]@{ Layanan=$name; Status=$state; Health=$health; Proses=$container.Name; KodeKeluar=$exitCode }
+        [pscustomobject]@{ Layanan=$name; Status=$state; Health=$health; Proses=$container.Name }
     }
 }
 
@@ -98,4 +71,4 @@ function ConvertFrom-DevAccessLog {
     '{0} WITA  {1,3}  {2,-7} {3,-13} {4}  {5}' -f $timestamp, $entry.status, $entry.method, $entry.service, $path, ([string]$entry.duration).Trim()
 }
 
-Export-ModuleMember -Function Get-DevComposeArguments, Get-DevServices, Open-DevTerminal, Invoke-DevDockerCapture, Assert-DevDocker, Get-DevServiceStatus, ConvertFrom-DevAccessLog
+Export-ModuleMember -Function Get-DevComposeArguments, Get-DevServices, Invoke-DevDockerCapture, Assert-DevDocker, Get-DevServiceStatus, ConvertFrom-DevAccessLog
