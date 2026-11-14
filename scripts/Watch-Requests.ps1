@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [ValidateSet('frontend', 'api-gateway', 'auth-service', 'user-service')][string[]]$Service = @('frontend', 'api-gateway', 'auth-service', 'user-service'),
+    [ValidateSet('frontend', 'api-gateway', 'auth-service', 'user-service', 'capstone-service')][string[]]$Service = @('frontend', 'api-gateway', 'auth-service', 'user-service', 'capstone-service'),
     [ValidateRange(0, 100000)][int]$Tail = 200,
     [switch]$ErrorsOnly,
     [switch]$IncludeHealth,

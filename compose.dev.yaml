@@ -5,6 +5,26 @@ x-development-logging: &development-logging
     max-file: "3"
 
 services:
+  capstone-service:
+    logging: *development-logging
+    image: capstone-project-service:dev
+    build:
+      dockerfile: Dockerfile.dev
+    working_dir: /app
+    init: true
+    restart: "no"
+    volumes:
+      - ../backend/capstone-service:/app
+      - project-air:/app/.air
+      - project-go-mod:/go/pkg/mod
+      - project-go-build:/home/app/.cache/go-build
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8083/health]
+      interval: 30s
+      start_interval: 5s
+      timeout: 3s
+      start_period: 180s
+      retries: 3
   auth-service:
     logging: *development-logging
     image: capstone-auth-service:dev
@@ -97,6 +117,9 @@ services:
       retries: 3
 
 volumes:
+  project-air:
+  project-go-mod:
+  project-go-build:
   auth-air:
   auth-go-mod:
   auth-go-build:

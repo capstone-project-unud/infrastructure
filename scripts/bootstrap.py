@@ -5,6 +5,7 @@ import hashlib
 import os
 import secrets
 import sys
+import argparse
 
 ROOT = Path(__file__).resolve().parents[2]
 ENV = ROOT / 'infrastructure' / '.env'
@@ -18,7 +19,9 @@ def load_env():
     values.update({key: value for key, value in os.environ.items() if key in (
         'BOOTSTRAP_DATABASE_URL', 'AUTH_DB_PASSWORD', 'USER_DB_PASSWORD',
         'AUTH_INTERNAL_TOKEN', 'USER_INTERNAL_TOKEN', 'ADMIN_EMAIL', 'ADMIN_PASSWORD',
-        'AUTH_DATABASE_NAME', 'USER_DATABASE_NAME')})
+        'AUTH_DATABASE_NAME', 'USER_DATABASE_NAME', 'CAPSTONE_DATABASE_NAME', 'CAPSTONE_DB_PASSWORD',
+        'AUTH_BOOTSTRAP_DATABASE_URL', 'USER_BOOTSTRAP_DATABASE_URL', 'CAPSTONE_BOOTSTRAP_DATABASE_URL',
+        'AUTH_RUNTIME_DATABASE_HOST', 'USER_RUNTIME_DATABASE_HOST', 'CAPSTONE_RUNTIME_DATABASE_HOST')})
     return values
 
 
@@ -30,9 +33,10 @@ def main():
     import psycopg
     from psycopg import sql
     values = load_env()
-    if not values.get('BOOTSTRAP_DATABASE_URL'):
-        sys.exit('Set BOOTSTRAP_DATABASE_URL in infrastructure/.env first.')
-    for key in ('AUTH_DB_PASSWORD', 'USER_DB_PASSWORD', 'AUTH_INTERNAL_TOKEN', 'USER_INTERNAL_TOKEN'):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--service', choices=['all', 'auth', 'user', 'capstone'], default='all')
+    selected = parser.parse_args().service
+    for key in ('AUTH_DB_PASSWORD', 'USER_DB_PASSWORD', 'CAPSTONE_DB_PASSWORD', 'AUTH_INTERNAL_TOKEN', 'USER_INTERNAL_TOKEN'):
         if not values.get(key):
             values[key] = secrets.token_urlsafe(40)
     values['ADMIN_EMAIL'] = values.get('ADMIN_EMAIL') or 'admin@capstone.local'
@@ -42,11 +46,17 @@ def main():
     if not 12 <= len(values['ADMIN_PASSWORD'].encode()) <= 72:
         sys.exit('ADMIN_PASSWORD must contain 12–72 bytes.')
     write_env(ENV, values)
-    parts = urlsplit(values['BOOTSTRAP_DATABASE_URL'])
     for service, role, password_key in (
             ('auth', 'capstone_auth_app', 'AUTH_DB_PASSWORD'),
             ('user', 'capstone_user_app', 'USER_DB_PASSWORD'),
+            ('capstone', 'capstone_project_app', 'CAPSTONE_DB_PASSWORD'),
         ):
+        if selected != 'all' and service != selected:
+            continue
+        owner_url = values.get(service.upper() + '_BOOTSTRAP_DATABASE_URL') or values.get('BOOTSTRAP_DATABASE_URL')
+        if not owner_url:
+            sys.exit(f'Set an owner database URL for {service}-service in infrastructure/.env first.')
+        parts = urlsplit(owner_url)
         database_name = values.get(service.upper() + '_DATABASE_NAME', parts.path.lstrip('/'))
         admin_url = urlunsplit((parts.scheme, parts.netloc, '/' + database_name, parts.query, ''))
         with psycopg.connect(admin_url, connect_timeout=20) as conn:
@@ -75,26 +85,39 @@ def main():
                     conn.execute(sql.SQL('INSERT INTO {}.schema_migrations(version,checksum) VALUES(%s,%s)').format(sql.Identifier(schema)), (migration.name, checksum))
                     print(f'Applied {service}-service/{migration.name}')
             conn.execute('RESET ROLE')
-            netloc = f'{role}:{quote(values[password_key], safe="")}@{parts.hostname}'
+            runtime_host = values.get(service.upper() + '_RUNTIME_DATABASE_HOST') or parts.hostname
+            netloc = f'{role}:{quote(values[password_key], safe="")}@{runtime_host}'
             if parts.port:
                 netloc += f':{parts.port}'
             runtime_url = urlunsplit((parts.scheme, netloc, '/' + database_name, parts.query, ''))
-            write_env(ROOT / 'backend' / (service + '-service') / '.env', {
+            service_env = ROOT / 'backend' / (service + '-service') / '.env'
+            previous = {}
+            if service_env.exists():
+                previous.update(line.split('=', 1) for line in service_env.read_text(encoding='utf-8').splitlines()
+                                if line.strip() and not line.lstrip().startswith('#'))
+            write_env(service_env, {**previous, **{
                 'DATABASE_URL': runtime_url,
-                'PORT': '8081' if service == 'auth' else '8082',
+                'PORT': {'auth': '8081', 'user': '8082', 'capstone': '8083'}[service],
                 'AUTH_SERVICE_URL': 'http://127.0.0.1:8081',
                 'USER_SERVICE_URL': 'http://127.0.0.1:8082',
                 'AUTH_INTERNAL_TOKEN': values['AUTH_INTERNAL_TOKEN'],
                 'USER_INTERNAL_TOKEN': values['USER_INTERNAL_TOKEN'],
-                'COOKIE_SECURE': 'false',
-            })
+                'COOKIE_SECURE': previous.get('COOKIE_SECURE', 'false'),
+            }, **({'STORAGE_DRIVER': previous.get('STORAGE_DRIVER', 'local'), 'UPLOAD_DIR': previous.get('UPLOAD_DIR', 'data/uploads')} if service == 'capstone' else {})})
+    if selected != 'all':
+        print(f'{selected}-service schema and restricted runtime configuration ready.')
+        return
     write_env(ROOT / 'backend' / 'api-gateway' / '.env', {
         'PORT': '8080', 'AUTH_SERVICE_URL': 'http://127.0.0.1:8081',
-        'USER_SERVICE_URL': 'http://127.0.0.1:8082', 'ALLOWED_ORIGIN': 'http://localhost:3000', 'TRUST_BFF': 'true',
+        'USER_SERVICE_URL': 'http://127.0.0.1:8082', 'CAPSTONE_SERVICE_URL': 'http://127.0.0.1:8083', 'ALLOWED_ORIGIN': 'http://localhost:3000', 'TRUST_BFF': 'true',
     })
     write_env(ROOT / 'frontend' / '.env', {'NUXT_GATEWAY_URL': 'http://127.0.0.1:8080'})
     print('Database schemas and restricted runtime roles ready. Credentials remain in ignored .env files.')
 
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except Exception as error:
+        print(f'Bootstrap failed: {type(error).__name__}, SQLSTATE={getattr(error, "sqlstate", None) or "unavailable"}. Check local connection configuration.', file=sys.stderr)
+        sys.exit(1)

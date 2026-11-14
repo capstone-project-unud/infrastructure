@@ -1,5 +1,7 @@
 # Arsitektur layanan dan kontrak API
 
+Tambahan capstone service (:8083), schema `capstone_service`, driver R2, Redis gateway, lima peran, dan API akademik dijelaskan pada [capstone-workflow.md](capstone-workflow.md). Uraian di bawah adalah fondasi tahap awal; limiter gateway memakai Redis ketika dikonfigurasi.
+
 ```mermaid
 flowchart LR
   B[Browser] -->|same origin /api/v1| N[Nuxt BFF :3000]

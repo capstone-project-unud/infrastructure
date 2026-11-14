@@ -4,7 +4,7 @@ function Get-DevComposeArguments {
 
 function Get-DevServices {
     param([switch]$SkipFrontend)
-    $names = @('api-gateway', 'auth-service', 'user-service')
+    $names = @('api-gateway', 'auth-service', 'user-service', 'capstone-service', 'redis')
     if (-not $SkipFrontend) { $names += 'frontend' }
     $names
 }
@@ -59,7 +59,7 @@ function ConvertFrom-DevAccessLog {
     param([string]$Line, [switch]$IncludeHealth, [switch]$ErrorsOnly)
     if (-not $Line.StartsWith('{')) { return }
     try { $entry = $Line | ConvertFrom-Json -ErrorAction Stop } catch { return }
-    if ($entry.access_log -ne $true -or $entry.service -notin @('frontend','api-gateway','auth-service','user-service')) { return }
+    if ($entry.access_log -ne $true -or $entry.service -notin @('frontend','api-gateway','auth-service','user-service','capstone-service')) { return }
     if (-not $IncludeHealth -and $entry.path -eq '/health') { return }
     $statusCode = 0
     $date = [DateTimeOffset]::MinValue

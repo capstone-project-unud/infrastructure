@@ -1,5 +1,7 @@
 # Hasil verifikasi — 2 November 2026
 
+Verifikasi alur lanjutan 14 November 2026 tersedia pada [verification-capstone.md](verification-capstone.md). Catatan di bawah dipertahankan sebagai riwayat tahap pertama.
+
 ## Lulus
 
 - Tiga modul Go: `go test ./...`, `go vet ./...`, dan build binary Windows.

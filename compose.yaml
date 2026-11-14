@@ -1,5 +1,35 @@
 name: capstone
 services:
+  redis:
+    image: redis:7.4-alpine
+    user: "999:999"
+    command: [redis-server, --save, "", --appendonly, "no"]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/data]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 15s
+      timeout: 3s
+      retries: 3
+    networks: [capstone]
+  capstone-service:
+    build: ../backend/capstone-service
+    env_file: ../backend/capstone-service/.env
+    environment:
+      BIND_HOST: 0.0.0.0
+      AUTH_SERVICE_URL: http://auth-service:8081
+      USER_SERVICE_URL: http://user-service:8082
+      UPLOAD_DIR: /app/data/uploads
+    volumes: [capstone-uploads:/app/data/uploads]
+    restart: unless-stopped
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [capstone]
   auth-service:
     build: ../backend/auth-service
     env_file: ../backend/auth-service/.env
@@ -31,9 +61,13 @@ services:
       AUTH_SERVICE_URL: http://auth-service:8081
       USER_SERVICE_URL: http://user-service:8082
       ALLOWED_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:3000}
+      CAPSTONE_SERVICE_URL: http://capstone-service:8083
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       auth-service: { condition: service_healthy }
       user-service: { condition: service_healthy }
+      capstone-service: { condition: service_healthy }
+      redis: { condition: service_healthy }
     restart: unless-stopped
     read_only: true
     cap_drop: [ALL]
@@ -74,3 +108,5 @@ services:
 networks:
   capstone:
     driver: bridge
+volumes:
+  capstone-uploads:

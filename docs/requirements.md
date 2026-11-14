@@ -1,5 +1,7 @@
 # Pemetaan kebutuhan ke implementasi tahap pertama
 
+Catatan historis tahap pertama. Permintaan lanjutan 14 November 2026 dan cakupan terbaru ada pada [implementasi-mandatory.md](../../docs/implementasi-mandatory.md). Pembatasan lingkup di bawah tidak berlaku untuk permintaan lanjutan tersebut.
+
 Permintaan pemilik membatasi implementasi saat ini pada autentikasi dan halaman admin manajemen pengguna. Panduan/draft membahas sistem capstone yang lebih luas; keberadaan alur tersebut bukan perintah untuk mengimplementasikannya pada tahap ini.
 
 ## Sumber yang diperiksa

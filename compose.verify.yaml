@@ -1,0 +1,39 @@
+name: capstone-verify
+x-service: &service
+  image: redis:7-alpine
+  entrypoint: [/verify/service]
+  env_file: .run/verify.env
+  depends_on:
+    postgres: { condition: service_healthy }
+  restart: "no"
+services:
+  postgres:
+    image: postgres:17-alpine
+    env_file: .run/verify.env
+    volumes: [./.run/verify/init.sql:/docker-entrypoint-initdb.d/001.sql:ro]
+    healthcheck:
+      test: [CMD-SHELL, pg_isready -U verify -d verify]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  redis:
+    image: redis:7-alpine
+    command: [redis-server, --save, "", --appendonly, "no"]
+  auth-service:
+    <<: *service
+    environment: { PORT: "8081", BIND_HOST: 0.0.0.0 }
+    volumes: [./.run/verify/auth-service:/verify/service:ro]
+  user-service:
+    <<: *service
+    environment: { PORT: "8082", BIND_HOST: 0.0.0.0 }
+    volumes: [./.run/verify/user-service:/verify/service:ro]
+    ports: ["127.0.0.1:18082:8082"]
+  capstone-service:
+    <<: *service
+    environment: { PORT: "8083", BIND_HOST: 0.0.0.0, STORAGE_DRIVER: local, UPLOAD_DIR: /tmp/uploads }
+    volumes: [./.run/verify/capstone-service:/verify/service:ro]
+  api-gateway:
+    <<: *service
+    environment: { PORT: "8080", BIND_HOST: 0.0.0.0, ALLOWED_ORIGIN: "http://localhost:3000", TRUST_BFF: "true", REDIS_URL: "redis://redis:6379/0" }
+    volumes: [./.run/verify/api-gateway:/verify/service:ro]
+    ports: ["127.0.0.1:18080:8080"]

@@ -1,5 +1,7 @@
 # Infrastruktur Sistem Layanan Capstone Project
 
+Tambahan 14 November 2026: capstone service, Redis, driver R2, migrasi lima peran, dan stack pengujian PostgreSQL lokal terisolasi. Baca [capstone-workflow.md](docs/capstone-workflow.md) sebelum startup pertama untuk menerapkan migrasi dan membuat `.env` layanan baru. Hasil pemeriksaan lanjutan berada pada [verification-capstone.md](docs/verification-capstone.md).
+
 Repositori ini memuat konfigurasi lingkungan, penyiapan database, dan perangkat pengujian integrasi untuk Sistem Layanan Capstone Project Program Studi Teknologi Informasi, Universitas Udayana. Infrastruktur menghubungkan frontend Nuxt, API gateway, layanan autentikasi, dan layanan pengguna yang dikembangkan dalam repositori terpisah.
 
 ## Komponen Sistem
