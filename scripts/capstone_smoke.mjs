@@ -5,11 +5,12 @@ import { dirname, resolve } from 'node:path'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 const env = Object.fromEntries((await readFile(resolve(root, 'infrastructure/.run/verify.env'), 'utf8')).split(/\r?\n/).filter(Boolean).map(l => { const at = l.indexOf('='); return [l.slice(0, at), l.slice(at + 1)] }))
 const base = process.env.VERIFY_API_URL || 'http://127.0.0.1:18080'
+const origin = process.env.VERIFY_ORIGIN || 'http://localhost:3000'
 const usersURL = 'http://127.0.0.1:18082'
 const password = 'Verification-only-Password-2026'
 let count = 0
 async function request(path, { cookie = '', method = 'GET', body, expected = 200, internal = false } = {}) {
- const headers = { Origin: 'http://localhost:3000', Cookie: cookie }
+ const headers = { Origin: origin, Cookie: cookie }
  if (internal) headers['X-Service-Token'] = env.USER_INTERNAL_TOKEN
  if (body && !(body instanceof FormData)) headers['Content-Type'] = 'application/json'
  const response = await fetch((internal ? usersURL : base) + path, { method, headers, body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined })

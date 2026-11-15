@@ -1,0 +1,81 @@
+name: Workspace integration
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: workspace-integration
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      NUXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: infrastructure
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: capstone-project-unud/auth-service
+          path: backend/auth-service
+          token: ${{ secrets.TEST_REPOSITORIES_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: capstone-project-unud/user-service
+          path: backend/user-service
+          token: ${{ secrets.TEST_REPOSITORIES_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: capstone-project-unud/api-gateway
+          path: backend/api-gateway
+          token: ${{ secrets.TEST_REPOSITORIES_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: capstone-project-unud/capstone-service
+          path: backend/capstone-service
+          token: ${{ secrets.TEST_REPOSITORIES_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: capstone-project-unud/frontend
+          path: frontend
+          token: ${{ secrets.TEST_REPOSITORIES_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/capstone-service/go.mod
+          cache-dependency-path: backend/*/go.sum
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.node-version
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+      - name: Check scripts
+        run: ./infrastructure/tests/Test-Scripts.ps1
+      - name: Verify complete workspace
+        run: ./infrastructure/scripts/Verify-Workspace.ps1 -Integration
+      - name: Clean up test stack
+        if: always()
+        run: |
+          if (Test-Path -LiteralPath infrastructure/.run/verify.env) {
+            docker compose -p capstone-verify -f infrastructure/compose.verify.yaml down --volumes
+            if ($LASTEXITCODE -ne 0) { throw 'Test stack cleanup failed.' }
+          }

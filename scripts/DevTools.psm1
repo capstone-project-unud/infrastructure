@@ -27,6 +27,24 @@ function Assert-DevDocker {
     if ($result.Output.Trim() -ne 'linux') { throw 'Pilih Linux containers pada Docker Desktop.' }
 }
 
+function Assert-DevConfiguration {
+    param([switch]$SkipFrontend)
+    $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
+    $required = @('infrastructure/.env')
+    foreach ($name in @(Get-DevServices -SkipFrontend:$SkipFrontend)) {
+        if ($name -eq 'redis') { continue }
+        if ($name -eq 'frontend') { $required += 'frontend/Dockerfile.dev'; continue }
+        $required += "backend/$name/.env", "backend/$name/Dockerfile.dev"
+    }
+    $missing = @($required | Where-Object { -not (Test-Path -LiteralPath (Join-Path $root $_) -PathType Leaf) })
+    if ($missing.Count) {
+        throw ('Berkas startup belum tersedia: ' + ($missing -join ', ') + '. Ikuti docs/menjalankan-proyek.md; pertahankan .env yang sudah ada. Start-Dev tidak menjalankan migrasi database otomatis.')
+    }
+    $arguments = @('compose') + @(Get-DevComposeArguments) + @('config', '--quiet')
+    $result = Invoke-DevDockerCapture -Arguments $arguments
+    if ($result.ExitCode -ne 0) { throw 'Konfigurasi Compose atau .env tidak valid. Jalankan docker compose -f infrastructure/compose.yaml -f infrastructure/compose.dev.yaml config --quiet dari root workspace.' }
+}
+
 function Get-DevBuildServices {
     param([switch]$Rebuild, [switch]$SkipFrontend)
     $arguments = @('compose') + @(Get-DevComposeArguments) + @('config', '--format', 'json', '--no-env-resolution')
@@ -88,4 +106,4 @@ function ConvertFrom-DevAccessLog {
     '{0} WITA  {1,3}  {2,-7} {3,-13} {4}  {5}' -f $timestamp, $entry.status, $entry.method, $entry.service, $path, ([string]$entry.duration).Trim()
 }
 
-Export-ModuleMember -Function Get-DevComposeArguments, Get-DevServices, Invoke-DevDockerCapture, Assert-DevDocker, Get-DevBuildServices, Get-DevServiceStatus, ConvertFrom-DevAccessLog
+Export-ModuleMember -Function Get-DevComposeArguments, Get-DevServices, Invoke-DevDockerCapture, Assert-DevDocker, Assert-DevConfiguration, Get-DevBuildServices, Get-DevServiceStatus, ConvertFrom-DevAccessLog

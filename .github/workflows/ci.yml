@@ -1,0 +1,38 @@
+name: Infrastructure CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Check PowerShell scripts
+        run: ./tests/Test-Scripts.ps1
+      - name: Check dev image selection and request logs
+        run: ./tests/Test-DevTools.ps1
+      - name: Check native command warnings and failures
+        run: ./tests/Test-VerificationCommands.ps1
+      - name: Check Python syntax
+        run: |
+          python3 -m compileall -q scripts
+          if ($LASTEXITCODE -ne 0) { throw 'Python syntax check failed.' }
+      - name: Validate Compose
+        run: ./tests/Test-Compose.ps1

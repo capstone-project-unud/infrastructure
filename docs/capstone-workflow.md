@@ -5,11 +5,11 @@ Auth service menyimpan kredensial/sesi, user service menyimpan identitas/peran, 
 ## Konfigurasi Neon dan Docker
 
 1. Database pemilik untuk layanan ini bernama `capstone_service`. `infrastructure/.env` menyimpan `CAPSTONE_DATABASE_NAME`, `CAPSTONE_BOOTSTRAP_DATABASE_URL` (endpoint direct), serta `CAPSTONE_RUNTIME_DATABASE_HOST` (pooler). URL layanan lain tetap terpisah.
-2. Setelah perubahan remote disetujui sesuai [activation-review.md](activation-review.md), jalankan `python -m pip install -r infrastructure/requirements.txt`, lalu `python infrastructure/scripts/bootstrap.py --service capstone` dan `python infrastructure/scripts/bootstrap.py --service user`. Mode selektif menerapkan hanya migrasi layanan yang dipilih. Migrasi memiliki checksum; jangan mengubah migrasi yang telah diterapkan.
-3. Jalankan `infrastructure/scripts/Start-Dev.ps1 -Build`. Auth, user, capstone, gateway, Redis, dan frontend dijalankan di jaringan privat. Hanya frontend port 3000 diterbitkan oleh Compose utama.
+2. Untuk database yang belum disiapkan, jalankan bootstrap sesuai [activation-review.md](activation-review.md). Mode selektif `--service capstone` atau `--service user` menerapkan hanya migrasi layanan yang dipilih. Migrasi memiliki checksum; jangan mengubah migrasi yang telah diterapkan. Startup rutin tidak menjalankan bootstrap.
+3. Jalankan `infrastructure/scripts/Start-Dev.ps1`. Image lokal yang belum ada dibangun otomatis; `-Build` memaksa pembangunan ulang. Auth, user, capstone, gateway, Redis, dan frontend dijalankan di jaringan privat. Hanya frontend port 3000 diterbitkan oleh Compose utama.
 4. Admin membuat akun dan mengisi bidang minat resmi. Form dosen dapat menambahkan peran KOORDINATOR_TA. Akun koordinator tersendiri juga tersedia. KOPRODI tidak otomatis menjadi koordinator TA.
 
-Migrasi capstone dan tambahan role user pada Neon belum diterapkan; schema capstone belum ada menurut pemeriksaan READ ONLY. Pengujian memakai PostgreSQL lokal terisolasi. `.env` sudah disiapkan dan diabaikan Git; layanan operasional masih menunggu migrasi. Nilai rahasia tidak berada di source.
+Migrasi capstone 001 dan user 002 telah diterapkan pada 14 November 2026 setelah persetujuan pemilik. Pemeriksaan runtime/checksum dan startup enam layanan berhasil, sesuai [catatan aktivasi](activation-review.md). `.env` tetap lokal dan diabaikan Git. Docker Desktop lokal mengakses Neon/R2 melalui backend; VPS tidak diperlukan. Panduan startup, CI, dan alur lima peran berada pada [workflows.md](workflows.md).
 
 ## Cloudflare R2
 
@@ -76,3 +76,5 @@ node infrastructure/scripts/capstone_smoke.mjs
 Setiap smoke test memerlukan stack uji baru. Hentikan/hapus hanya stack `capstone-verify` dengan `docker compose -f infrastructure/compose.verify.yaml down -v` sebelum pengulangan. Stack ini tidak memakai `.env` Neon; database/container uji tidak memuat data operasional. Fixture/sesi dan ekspor disimpan pada `.run` yang diabaikan Git. Port loopback: gateway 18080 dan user service privat untuk bootstrap uji 18082.
 
 Untuk BFF lokal terhadap stack uji, jalankan frontend dengan `NUXT_GATEWAY_URL=http://127.0.0.1:18080`. Jangan memakai konfigurasi uji untuk data operasional.
+
+Runner lengkap tersedia: `./infrastructure/scripts/Verify-Workspace.ps1 -Integration`. Perintah ini menjalankan unit test, vet, build backend, tes kalender, typecheck/build frontend, API, dan SSR. Stack uji dibersihkan dalam `finally`; container development tetap berjalan. Runner memerlukan Go, Node sesuai versi proyek, serta dependency frontend dari `npm ci`. Lihat [workflows.md](workflows.md) untuk batas lingkungan dan CI.

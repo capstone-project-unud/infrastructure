@@ -8,10 +8,16 @@ flowchart LR
   N --> G[API gateway :8080]
   G --> A[Auth service :8081]
   G --> U[User service :8082]
+  G --> C[Capstone service :8083]
+  G --> R[(Redis: pembatasan request)]
   A -->|lookup pengguna aktif / token internal| U
   U -->|verifikasi sesi / provisioning kredensial| A
   A --> AD[(Neon auth-service)]
   U --> UD[(Neon user-service)]
+  C --> A
+  C --> U
+  C --> CD[(Neon capstone_service)]
+  C --> F[(Berkas privat: lokal / R2)]
 ```
 
 Auth dan user bisa mulai tanpa saling menunggu: health mereka memeriksa database masing-masing. Interaksi dua arah di atas tidak rekursif. Endpoint lookup internal user hanya membaca profil; endpoint verifikasi sesi internal auth hanya membaca sesi. Tidak memanggil middleware publik layanan lainnya.
@@ -22,10 +28,11 @@ Auth dan user bisa mulai tanpa saling menunggu: health mereka memeriksa database
 | --- | --- | --- |
 | auth-service | auth-service / auth_service | credentials, sessions, schema_migrations |
 | user-service | user-service / user_service | users, audit_logs, schema_migrations |
-| api-gateway | tidak ada | routing, origin policy, rate limit sementara per instance |
+| capstone-service | capstone_service / capstone_service | bidang minat, judul, detail mahasiswa/pembimbing, berkas, log, persyaratan UP, audit, schema_migrations |
+| api-gateway | Redis untuk penghitung sementara | routing, origin policy, rate limit atomik lintas instance |
 | frontend | tidak ada | tampilan dan state UI; cookie sesi tidak dibaca JavaScript |
 
-Role PostgreSQL runtime berbeda (`capstone_auth_app`, `capstone_user_app`) dan memiliki schema layanan masing-masing. PUBLIC tidak memiliki akses schema layanan. Skrip administratif menggunakan kredensial owner hanya ketika bootstrap. Tidak ada user foreign key di auth database yang menunjuk database user; UUID adalah kontrak lintas layanan.
+Role PostgreSQL runtime berbeda (`capstone_auth_app`, `capstone_user_app`, `capstone_project_app`) dan memiliki schema layanan masing-masing. PUBLIC tidak memiliki akses schema layanan. Skrip administratif menggunakan kredensial owner hanya ketika bootstrap. UUID adalah kontrak lintas layanan; tidak ada foreign key lintas database.
 
 `capstone.sql` sumber menggunakan schema monolit `capstone`, dengan password di users, tabel user_roles, students, lecturers, dan auth_identities. Implementasi ini memindahkan password ke auth credentials, menyatukan subset profil akademik/peran yang diperlukan tahap ini dalam user users, serta menambah sessions dan audit lokal. Ini adaptasi skema untuk batas layanan; bukan menjalankan keseluruhan SQL monolit atau migrasi data lama. Jika nanti ada data lama, diperlukan migrasi data khusus yang menjaga UUID dan memverifikasi relasi.
 
@@ -111,4 +118,4 @@ Ini tidak memberikan transaksi ACID lintas database atau jaminan exactly-once. S
 
 Reset kata sandi dan audit juga melintasi layanan: jika kredensial berhasil berubah tetapi audit gagal, respons menyatakan perubahan kata sandi telah terjadi. Waktu login terakhir diperbarui best effort; kegagalan pembaruan tidak membatalkan login yang sah. Error ini tidak boleh diartikan sebagai jaminan audit login lengkap.
 
-Rate limit in-memory per instance; horizontal scaling memerlukan shared store. Tidak ada Redis/broker/Kubernetes yang dibangun karena belum diperlukan untuk batas fitur ini. Pool PostgreSQL maksimal 5 koneksi per service, dependency HTTP memiliki timeout, request database diberi deadline, dan shutdown menunggu sampai 10 detik. Sesi kedaluwarsa ditolak tetapi belum memiliki scheduler pembersihan otomatis.
+Gateway memakai Redis ketika REDIS_URL dikonfigurasi, termasuk pada Compose development. Penghitung menggunakan INCR/EXPIRE atomik; kegagalan Redis mendapat 503. Tanpa Redis, gateway memakai limiter memori per instance. Auth memiliki limiter login tambahan per instance. Pool PostgreSQL maksimal 5 koneksi per service, dependency HTTP memiliki timeout, request database diberi deadline, dan shutdown menunggu sampai 10 detik. Sesi kedaluwarsa ditolak tetapi belum memiliki scheduler pembersihan otomatis. Penggunaan saat ini melalui Docker Desktop lokal dengan Neon/R2; deployment VPS belum disiapkan.

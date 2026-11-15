@@ -1,4 +1,4 @@
-# Verifikasi implementasi capstone, 14 November 2026
+# Verifikasi implementasi capstone, 14–15 November 2026
 
 Pengujian memakai PostgreSQL 17 dan Redis lokal dalam project Compose `capstone-verify`. Auth/user/capstone/gateway menjalankan binary Linux hasil kompilasi source. Tidak ada migrasi atau penulisan data pada Neon. Akun, berkas, dan proyek pengujian diberi nama verifikasi dan hanya berada pada lingkungan uji.
 
@@ -32,9 +32,9 @@ Pilihan pemilik pada sesi ini: cukup pemeriksaan API dan build; browser/interaks
 
 Rasio kontras yang dihitung dari token source: muted terang/putih 5.94:1; muted gelap/panel 6.38:1; teks putih/tombol primary 6.49:1; sukses terang/putih 5.02:1; error terang/putih 7.26:1. Tombol primary memakai token aksi tetap agar teks putih tidak kehilangan kontras pada mode gelap. Ini perhitungan token, bukan audit semua pixel halaman.
 
-## Yang belum diaktifkan atau diperiksa
+## Batas pemeriksaan awal dan pembaruan aktivasi
 
-- Migrasi Neon: `.env` sudah disiapkan dan diabaikan Git. Pemeriksaan READ ONLY berhasil; schema, tabel capstone, dan role runtime belum ada. Migrasi/pembuatan role remote menunggu persetujuan karena automatic approval review menolak pelaksanaan sebelumnya. Rincian: [activation-review.md](activation-review.md).
+- Migrasi Neon: pada pemeriksaan awal belum diterapkan. Setelah persetujuan pemilik, migrasi capstone 001 dan user 002 berhasil diterapkan pada 14 November 2026; catatan aktivasi terbaru ada di bagian terakhir dan [activation-review.md](activation-review.md).
 - Format surat resmi: PDF sengaja berlabel format sementara sampai detail diberikan.
 - Browser: klik, fokus, ukuran mobile/tablet, tema nyata, dan console/hydration belum diverifikasi.
 - Pemeriksaan mata kuliah, penjadwalan/nilai/kelulusan ujian, Expo, RAG, dan dokumen B-Series lengkap berada di luar alur wajib tahap ini. Panduan asli telah diekstrak ulang; validasi dua berkas belum mencakup seluruh persyaratan pedoman.
@@ -75,3 +75,26 @@ Pemilik menyetujui perubahan remote dengan pesan “boleh” pada 14 November 20
 - PASS: env tetap diabaikan Git dan repo capstone-service tetap bersih. Nilai rahasia tidak dicetak atau dimasukkan commit.
 
 Container development dibiarkan aktif. Aplikasi tersedia di http://localhost:3000/login. Verifikasi visual/interaksi browser tetap belum dilakukan sesuai pilihan pemilik.
+
+## Pembaruan workflow lokal dan CI, 15 November 2026
+
+Workflow digunakan melalui Docker Desktop lokal; VPS belum digunakan. Perubahan mencakup preflight Start-Dev, pull_policy never untuk lima image aplikasi lokal, runner Verify-Workspace, konfigurasi origin stack uji, task VS Code, CI per repo, dan dokumentasi alur lima peran. Diagram kepemilikan data kini mencakup capstone service dan Redis; panduan menyebut tiga database serta empat backend.
+
+Hasil pemeriksaan terbaru:
+
+- PASS: Start-Dev.ps1 -NoWatch memakai image lokal yang tersedia, menunggu enam container healthy, dan mempertahankan admin yang sudah ada. Tidak menjalankan bootstrap atau migrasi Neon.
+- PASS: 12 berkas PowerShell lolos parser; Test-DevTools menguji image hilang/cache/rebuild/SkipFrontend, konfigurasi hilang/gagal, daftar layanan, dan penyaringan log.
+- PASS: Test-Compose memeriksa kebijakan image dari konfigurasi sebenarnya, port privat, health check seluruh layanan uji, dan env/storage uji yang terpisah.
+- PASS: Test-VerificationCommands membuktikan stderr dengan exit 0 tetap diteruskan, exit 7 menghentikan verifikasi, serta preferensi error pemanggil tetap dipertahankan. Pengujian negatif tidak meninggalkan exit code gagal pada langkah CI yang berhasil.
+- PASS: unit test, vet, dan build cmd/api pada auth-service, user-service, capstone-service, serta api-gateway. Go host 1.26.0 windows/386; binary integrasi linux/amd64 dibangun dengan CGO nonaktif.
+- PASS: empat tes kalender, typecheck Nuxt, dan build produksi menggunakan Node 22.22.3.
+- PASS: 122 permintaan API pada PostgreSQL/Redis sementara, termasuk alur wajib lima peran dan tambahan jabatan Koprodi.
+- PASS: 31 halaman SSR lintas peran, font Urbanist wOF2, redirect kewenangan/sesi, penolakan Origin asing, serta XLSX melalui BFF.
+- PASS: stack capstone-verify dibersihkan dalam finally, termasuk sesudah percobaan SSR yang gagal. Container development dipertahankan.
+- PASS: tujuh file workflow GitHub Actions divalidasi dengan actionlint 1.7.12; dua workflow infrastructure diperiksa ulang setelah tambahan tes regresi. Whitespace enam repo, JSON task VS Code, dan tautan lokal panduan yang berubah valid.
+
+SSR sempat menemukan ketidaksesuaian origin: frontend uji memakai port 13000, sedangkan gateway uji masih memakai port 3000. Runner kini menyamakan VERIFY_ORIGIN dan alamat SSR menjadi http://127.0.0.1:13000; proteksi Origin BFF/gateway tetap aktif. Pengujian ulang API/SSR kemudian lulus.
+
+Penyimpanan log pada Windows PowerShell juga sempat menjadikan warning native sebagai NativeCommandError. VerificationTools memeriksa exit code perintah, meneruskan stderr sebagai teks, dan memulihkan preferensi error. Runner lengkap berhasil saat seluruh output diarahkan ke infrastructure/.run/workflow-verification.log. Konfigurasi dan artifact uji berada di .run yang diabaikan Git.
+
+File CI tersedia pada masing-masing repo lokal. Eksekusi di GitHub, termasuk go test -race pada runner Linux, belum diverifikasi; workflow perlu dipublikasikan terlebih dahulu. Integrasi manual lintas repo memerlukan TEST_REPOSITORIES_TOKEN berhak baca jika repo pendamping privat. Tidak ada konfigurasi deploy/SSH/VPS, penulisan data akademik uji pada Neon, atau unggahan uji R2 dalam pembaruan ini. Browser/interaksi visual tetap belum diuji sesuai pilihan pemilik. Cakupan pedoman lanjutan tetap mengikuti coverage.md.

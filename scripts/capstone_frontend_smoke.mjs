@@ -23,6 +23,9 @@ for (const [role, routes] of Object.entries(paths)) {
  }
 }
 const blocked = await fetch(base + '/finalization', { headers: { Cookie: fixtures.accounts.tu.cookie }, redirect: 'manual' })
+const font = await fetch(base + '/fonts/urbanist-latin.woff2')
+assert.equal(font.status, 200, 'Font Urbanist harus tersedia pada build produksi')
+assert.equal(Buffer.from(await font.arrayBuffer()).subarray(0, 4).toString(), 'wOF2')
 assert.ok([302, 307].includes(blocked.status)); assert.match(blocked.headers.get('location'), /capstone/)
 const unauthenticated = await fetch(base + '/guidance', { redirect: 'manual' })
 assert.ok([302, 307].includes(unauthenticated.status)); assert.match(unauthenticated.headers.get('location'), /login/)
@@ -31,4 +34,4 @@ assert.equal(origin.status, 403)
 const download = await fetch(base + '/api/v1/capstone/projects/export', { headers: { Cookie: fixtures.accounts.tu.cookie } })
 assert.equal(download.status, 200); assert.match(download.headers.get('content-disposition'), /\.xlsx/)
 assert.equal(Buffer.from(await download.arrayBuffer()).subarray(0, 2).toString(), 'PK')
-console.log(`PASS: ${count} halaman SSR lintas peran, redirect akses, proteksi Origin BFF, dan unduhan XLSX melalui BFF. Pemeriksaan ini tidak menjalankan interaksi browser.`)
+console.log(`PASS: ${count} halaman SSR lintas peran, font Urbanist, redirect akses, proteksi Origin BFF, dan unduhan XLSX melalui BFF. Pemeriksaan ini tidak menjalankan interaksi browser.`)

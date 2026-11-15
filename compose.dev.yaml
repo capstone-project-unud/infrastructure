@@ -8,6 +8,7 @@ services:
   capstone-service:
     logging: *development-logging
     image: capstone-project-service:dev
+    pull_policy: never
     build:
       dockerfile: Dockerfile.dev
     working_dir: /app
@@ -28,6 +29,7 @@ services:
   auth-service:
     logging: *development-logging
     image: capstone-auth-service:dev
+    pull_policy: never
     build:
       dockerfile: Dockerfile.dev
     working_dir: /app
@@ -49,6 +51,7 @@ services:
   user-service:
     logging: *development-logging
     image: capstone-user-service:dev
+    pull_policy: never
     build:
       dockerfile: Dockerfile.dev
     working_dir: /app
@@ -70,6 +73,7 @@ services:
   api-gateway:
     logging: *development-logging
     image: capstone-api-gateway:dev
+    pull_policy: never
     build:
       dockerfile: Dockerfile.dev
     working_dir: /app
@@ -91,6 +95,7 @@ services:
   frontend:
     logging: *development-logging
     image: capstone-frontend:dev
+    pull_policy: never
     build:
       dockerfile: Dockerfile.dev
     working_dir: /app

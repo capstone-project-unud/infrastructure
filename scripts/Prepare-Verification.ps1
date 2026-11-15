@@ -1,4 +1,7 @@
+[CmdletBinding()]
+param([ValidateSet('amd64', 'arm64')][string]$Architecture = 'amd64')
 $ErrorActionPreference = 'Stop'
+if (-not (Get-Command go -ErrorAction SilentlyContinue)) { throw 'Go sesuai go.mod diperlukan untuk menyiapkan binary pengujian.' }
 $root = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '../..'))
 $verifyDir = Join-Path $root 'infrastructure/.run/verify'
 New-Item -ItemType Directory -Force $verifyDir | Out-Null
@@ -14,12 +17,26 @@ $values = @(
  'CAPSTONE_SERVICE_URL=http://capstone-service:8083', 'COOKIE_SECURE=false'
 )
 [IO.File]::WriteAllLines((Join-Path $root 'infrastructure/.run/verify.env'), $values)
-$sql = @('CREATE SCHEMA auth_service;', 'CREATE SCHEMA user_service;', 'CREATE SCHEMA capstone_service;')
+$sql = @('BEGIN;', 'CREATE SCHEMA auth_service;', 'CREATE SCHEMA user_service;', 'CREATE SCHEMA capstone_service;')
 foreach ($service in @('auth-service', 'user-service', 'capstone-service')) {
- foreach ($migration in Get-ChildItem -LiteralPath (Join-Path $root "backend/$service/migrations") -Filter '*.sql' | Sort-Object Name) { $sql += [IO.File]::ReadAllText($migration.FullName) }
+ $schema = $service.Replace('-', '_')
+ $sql += "CREATE TABLE $schema.schema_migrations (version text PRIMARY KEY, checksum text NOT NULL, applied_at timestamptz NOT NULL DEFAULT now());"
+ $migrations = @(Get-ChildItem -LiteralPath (Join-Path $root "backend/$service/migrations") -Filter '*.sql' | Sort-Object Name)
+ if (-not $migrations.Count) { throw "Migrasi tidak ditemukan: $service" }
+ foreach ($migration in $migrations) {
+  $content = [IO.File]::ReadAllText($migration.FullName).Replace("`r`n", "`n")
+  $sha = [Security.Cryptography.SHA256]::Create()
+  try { $checksum = ([BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($content)))).Replace('-', '').ToLowerInvariant() }
+  finally { $sha.Dispose() }
+  $name = $migration.Name.Replace("'", "''")
+  $sql += $content, "INSERT INTO $schema.schema_migrations(version,checksum) VALUES('$name','$checksum');"
+ }
 }
+$sql += 'COMMIT;'
 [IO.File]::WriteAllText((Join-Path $verifyDir 'init.sql'), ($sql -join "`n"))
-$env:GOOS='linux'; $env:GOARCH='amd64'; $env:CGO_ENABLED='0'
+$previous = @{}
+foreach ($name in @('GOOS', 'GOARCH', 'CGO_ENABLED', 'GOCACHE')) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
+$env:GOOS='linux'; $env:GOARCH=$Architecture; $env:CGO_ENABLED='0'
 try {
  foreach ($service in @('auth-service', 'user-service', 'capstone-service', 'api-gateway')) {
   Push-Location (Join-Path $root "backend/$service")
@@ -29,5 +46,7 @@ try {
    if ($LASTEXITCODE -ne 0) { throw "Build gagal: $service" }
   } finally { Pop-Location }
  }
-} finally { Remove-Item Env:GOOS,Env:GOARCH,Env:CGO_ENABLED -ErrorAction SilentlyContinue }
+} finally {
+ foreach ($name in $previous.Keys) { [Environment]::SetEnvironmentVariable($name, $previous[$name], 'Process') }
+}
 Write-Output 'Binary Linux dan database uji disiapkan. Konfigurasi hanya berada di infrastructure/.run.'

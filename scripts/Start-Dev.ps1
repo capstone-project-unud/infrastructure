@@ -9,6 +9,7 @@ param(
 $ErrorActionPreference = 'Stop'
 Import-Module (Join-Path $PSScriptRoot 'DevTools.psm1') -Force
 Assert-DevDocker
+Assert-DevConfiguration -SkipFrontend:$SkipFrontend
 Write-Output 'Menjalankan Docker development...'
 $compose = @(Get-DevComposeArguments)
 $buildServices = @(Get-DevBuildServices -Rebuild:$Build -SkipFrontend:$SkipFrontend)
