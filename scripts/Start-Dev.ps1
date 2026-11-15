@@ -11,8 +11,13 @@ Import-Module (Join-Path $PSScriptRoot 'DevTools.psm1') -Force
 Assert-DevDocker
 Write-Output 'Menjalankan Docker development...'
 $compose = @(Get-DevComposeArguments)
-$arguments = @('compose', '--progress', 'plain') + $compose + @('up', '--detach', '--wait', '--wait-timeout', "$WaitTimeoutSeconds")
-if ($Build) { $arguments += '--build' }
+$buildServices = @(Get-DevBuildServices -Rebuild:$Build -SkipFrontend:$SkipFrontend)
+if ($buildServices.Count) {
+    Write-Output ('Membangun image lokal: ' + ($buildServices -join ', '))
+    & docker compose --progress plain @compose build @buildServices
+    if ($LASTEXITCODE -ne 0) { throw 'Build image development gagal. Periksa koneksi unduhan base image atau log build di atas.' }
+}
+$arguments = @('compose', '--progress', 'plain') + $compose + @('up', '--no-build', '--detach', '--wait', '--wait-timeout', "$WaitTimeoutSeconds")
 $arguments += @(Get-DevServices -SkipFrontend:$SkipFrontend)
 & docker @arguments
 if ($LASTEXITCODE -ne 0) { throw 'Startup Docker gagal atau layanan belum healthy. Container dipertahankan untuk diagnosis. Jalankan Watch-ServiceStatus.ps1 -Once atau docker compose logs.' }

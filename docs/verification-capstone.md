@@ -2,6 +2,8 @@
 
 Pengujian memakai PostgreSQL 17 dan Redis lokal dalam project Compose `capstone-verify`. Auth/user/capstone/gateway menjalankan binary Linux hasil kompilasi source. Tidak ada migrasi atau penulisan data pada Neon. Akun, berkas, dan proyek pengujian diberi nama verifikasi dan hanya berada pada lingkungan uji.
 
+Paragraf dan hasil pengujian lokal di atas adalah kondisi sebelum persetujuan migrasi. Aktivasi Neon yang kemudian disetujui pemilik tercatat pada bagian terakhir dokumen ini.
+
 ## Hasil
 
 | Pemeriksaan | Hasil dan bukti |
@@ -61,3 +63,15 @@ Permintaan lanjutan pemilik mengganti seluruh dropdown native, kalender native, 
 - PASS: whitespace frontend dan dua salinan panduan desain identik. Tidak ada dependency UI/tanggal baru atau migrasi Neon.
 
 Delivery Gate source: menu memakai ARIA, navigasi keyboard, keputusan opsi disabled, validasi required, fokus balik, dan light dismiss melalui popover; kalender memakai tombol hari dengan label tanggal lengkap; unggah memiliki tombol keyboard, drag-and-drop, format/ukuran, serta busy/disabled. Gerbang visual/interaksi browser tetap pending sesuai pilihan pemilik. Pengujian logika/SSR tidak membuktikan klik, fokus, posisi popover, tema, atau reflow viewport pada browser. Stack uji dan frontend dihentikan sesudah verifikasi.
+
+## Aktivasi Neon setelah persetujuan pemilik
+
+Pemilik menyetujui perubahan remote dengan pesan “boleh” pada 14 November 2026. Bootstrap selektif berhasil menerapkan capstone-service/001_capstone.sql dan user-service/002_academic_roles.sql. Tidak menjalankan migrasi auth atau mengubah kata sandi pengguna.
+
+- PASS: role runtime capstone tersambung ke Neon, membaca delapan tabel termasuk ledger. Role runtime user juga tersambung; pemeriksaan READ ONLY membuktikan checksum migrasi sesuai source dan constraint KOORDINATOR_TA/TU aktif.
+- PASS: R2 nyata PUT/GET/DELETE satu objek sintetis melalui check-integrations; objek uji dihapus.
+- PASS: Start-Dev.ps1 -NoWatch selesai. Pada 22:37 WITA keenam layanan aktif/healthy: auth-service, user-service, capstone-service, api-gateway, Redis, dan frontend. Admin awal sudah tersedia sehingga seed tidak membuat akun lain.
+- PASS: 15 request HTTP langsung melalui frontend Docker yang terhubung Neon: halaman login, login admin, sesi, dashboard capstone, statistik akun, bidang minat, daftar judul, tujuh halaman ruang kerja admin, dan logout sesi pemeriksaan. Tidak membuat data akademik uji di Neon.
+- PASS: env tetap diabaikan Git dan repo capstone-service tetap bersih. Nilai rahasia tidak dicetak atau dimasukkan commit.
+
+Container development dibiarkan aktif. Aplikasi tersedia di http://localhost:3000/login. Verifikasi visual/interaksi browser tetap belum dilakukan sesuai pilihan pemilik.

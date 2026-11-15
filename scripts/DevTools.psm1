@@ -27,6 +27,23 @@ function Assert-DevDocker {
     if ($result.Output.Trim() -ne 'linux') { throw 'Pilih Linux containers pada Docker Desktop.' }
 }
 
+function Get-DevBuildServices {
+    param([switch]$Rebuild, [switch]$SkipFrontend)
+    $arguments = @('compose') + @(Get-DevComposeArguments) + @('config', '--format', 'json', '--no-env-resolution')
+    $result = Invoke-DevDockerCapture -Arguments $arguments
+    if ($result.ExitCode -ne 0) { throw 'Konfigurasi Compose tidak dapat dibaca. Periksa berkas Compose dan .env layanan.' }
+    try { $configuration = $result.Output | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw 'Konfigurasi Compose tidak menghasilkan JSON yang valid.' }
+    foreach ($name in @(Get-DevServices -SkipFrontend:$SkipFrontend)) {
+        $service = $configuration.services.PSObject.Properties[$name].Value
+        if (-not $service.build) { continue }
+        if (-not $service.image) { throw "Nama image development belum ditentukan untuk $name." }
+        if ($Rebuild) { $name; continue }
+        $image = Invoke-DevDockerCapture -Arguments @('image', 'inspect', [string]$service.image, '--format', '{{.Id}}')
+        if ($image.ExitCode -ne 0) { $name }
+    }
+}
+
 function Get-DevServiceStatus {
     param([switch]$SkipFrontend)
     $services = @(Get-DevServices -SkipFrontend:$SkipFrontend)
@@ -71,4 +88,4 @@ function ConvertFrom-DevAccessLog {
     '{0} WITA  {1,3}  {2,-7} {3,-13} {4}  {5}' -f $timestamp, $entry.status, $entry.method, $entry.service, $path, ([string]$entry.duration).Trim()
 }
 
-Export-ModuleMember -Function Get-DevComposeArguments, Get-DevServices, Invoke-DevDockerCapture, Assert-DevDocker, Get-DevServiceStatus, ConvertFrom-DevAccessLog
+Export-ModuleMember -Function Get-DevComposeArguments, Get-DevServices, Invoke-DevDockerCapture, Assert-DevDocker, Get-DevBuildServices, Get-DevServiceStatus, ConvertFrom-DevAccessLog
