@@ -4,6 +4,7 @@ import http.cookiejar
 import json
 import secrets
 import sys
+from typing import Any
 import urllib.request
 import urllib.error
 import uuid
@@ -20,7 +21,7 @@ def client():
     return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar)), jar
 
 
-def request(opener, method, path, body=None, expected=200, headers=None):
+def request(opener, method, path, body=None, expected=200, headers=None) -> Any:
     global checks
     request_headers = {'Content-Type': 'application/json', **(headers or {})}
     req = urllib.request.Request(BASE + path, method=method,
@@ -33,6 +34,12 @@ def request(opener, method, path, body=None, expected=200, headers=None):
     assert response.code == expected, f'{method} {path}: expected {expected}, got {response.code}: {payload.decode()}'
     checks += 1
     return json.loads(payload) if payload and response.headers.get('Content-Type', '').startswith('application/json') else None
+
+
+def request_json(opener, method, path, body=None, expected=200, headers=None) -> dict[str, Any]:
+    data = request(opener, method, path, body=body, expected=expected, headers=headers)
+    assert isinstance(data, dict), f'{method} {path}: expected JSON object response, got {type(data).__name__}'
+    return data
 
 
 def service_env(service):
@@ -55,25 +62,28 @@ def main():
     request(admin, 'POST', '/api/v1/auth/login', {'email': v['ADMIN_EMAIL'], 'password': v['ADMIN_PASSWORD']})
     cookie = list(admin_jar)[0]
     assert cookie.has_nonstandard_attr('HttpOnly') and cookie.get_nonstandard_attr('SameSite') == 'Strict'
-    admin_id = request(admin, 'GET', '/api/v1/me')['user']['id']
+    admin_id = request_json(admin, 'GET', '/api/v1/me')['user']['id']
     student = {'full_name': 'TEST Mahasiswa Integrasi', 'email': student_email,
         'roles': ['MAHASISWA'], 'nim': 'TEST' + suffix, 'admission_year': 2023, 'password': password}
-    student_id = request(admin, 'POST', '/api/v1/users', student, expected=201)['user']['id']
+    student_id = request_json(admin, 'POST', '/api/v1/users', student, expected=201)['user']['id']
     created.append(student_id)
     request(admin, 'POST', '/api/v1/users', student, expected=409)
     request(admin, 'POST', '/api/v1/users', {**student, 'email': f'test-invalid-{suffix}@example.invalid', 'nim': None}, expected=422)
     request(admin, 'POST', '/api/v1/users', {**student, 'roles': ['ADMIN']}, expected=422)
-    lecturer = {'full_name': 'TEST Dosen Integrasi', 'email': lecturer_email, 'roles': ['DOSEN', 'KOPRODI'], 'nip': 'TEST' + suffix, 'password': password}
-    lecturer_id = request(admin, 'POST', '/api/v1/users', lecturer, expected=201)['user']['id']
+    lecturer = {'full_name': 'TEST Dosen Integrasi', 'email': lecturer_email, 'roles': ['DOSEN', 'KOORDINATOR_TA'], 'nip': 'TEST' + suffix, 'password': password}
+    request(admin, 'POST', '/api/v1/users', {**lecturer, 'roles': ['DOSEN', 'KOPRODI']}, expected=422)
+    lecturer_id = request_json(admin, 'POST', '/api/v1/users', lecturer, expected=201)['user']['id']
     created.append(lecturer_id)
-    filtered = request(admin, 'GET', '/api/v1/users?q=' + suffix + '&role=MAHASISWA')
+    nip_filtered = request_json(admin, 'GET', '/api/v1/users?q=TEST' + suffix + '&role=KOORDINATOR_TA')
+    assert nip_filtered['total'] == 1 and nip_filtered['items'][0]['id'] == lecturer_id
+    filtered = request_json(admin, 'GET', '/api/v1/users?q=' + suffix + '&role=MAHASISWA')
     assert filtered['total'] == 1 and filtered['items'][0]['id'] == student_id
     request(admin, 'GET', '/api/v1/users/stats')
     student_client, student_jar = client()
     request(student_client, 'POST', '/api/v1/auth/login', {'email': student_email.upper(), 'password': password})
     request(student_client, 'GET', '/api/v1/users', expected=403)
     request(student_client, 'PUT', '/api/v1/me', {'full_name': 'TEST Mahasiswa Diperbarui', 'email': student_email, 'phone': '080000000000', 'roles': ['ADMIN'], 'is_active': True})
-    me = request(student_client, 'GET', '/api/v1/me')['user']
+    me = request_json(student_client, 'GET', '/api/v1/me')['user']
     assert me['roles'] == ['MAHASISWA'] and me['phone'] == '080000000000'
     old_cookie = list(student_jar)[0].value
     request(admin, 'PATCH', f'/api/v1/users/{student_id}/status', {'is_active': False}, expected=204)
@@ -87,9 +97,12 @@ def main():
     request(student_client, 'POST', '/api/v1/auth/login', {'email': student_email, 'password': new_password})
     request(admin, 'PUT', f'/api/v1/users/{student_id}/password', {'password': password}, expected=204)
     request(student_client, 'GET', '/api/v1/me', expected=401)
+    lecturer_client, _ = client()
+    request(lecturer_client, 'POST', '/api/v1/auth/login', {'identifier': lecturer['nip'], 'password': password})
+    assert request_json(lecturer_client, 'GET', '/api/v1/me')['user']['id'] == lecturer_id
     request(admin, 'PUT', f'/api/v1/users/{lecturer_id}', {**lecturer, 'full_name': 'TEST Dosen Diperbarui', 'expertise': 'Pengujian sistem'})
     request(admin, 'PATCH', f'/api/v1/users/{admin_id}/status', {'is_active': False}, expected=422)
-    audit = request(admin, 'GET', '/api/v1/users/audit')['items']
+    audit = request_json(admin, 'GET', '/api/v1/users/audit')['items']
     assert any(item['action'] == 'PASSWORD_RESET' for item in audit)
     auth_url = service_env('auth-service')['DATABASE_URL']
     user_url = service_env('user-service')['DATABASE_URL']

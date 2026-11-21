@@ -3,13 +3,15 @@ import { readFile } from 'node:fs/promises'
 const fixtures = JSON.parse(await readFile(new URL('../.run/browser-fixtures.json', import.meta.url), 'utf8'))
 const base = process.env.FRONTEND_URL || 'http://localhost:3000'
 const paths = {
- admin: ['/dashboard', '/admin/users', '/admin/interests', '/capstone', '/guidance', '/proposal', '/account'],
- student1: ['/dashboard', '/capstone', '/guidance', '/proposal', '/capstone/' + fixtures.project.id],
- outsider: ['/dashboard', '/capstone/new'],
- lecturer1: ['/dashboard', '/capstone', '/guidance', '/capstone/' + fixtures.project.id],
- coordinator: ['/dashboard', '/finalization', '/admin/interests', '/capstone', '/guidance', '/proposal', '/capstone/' + fixtures.project.id],
- tu: ['/dashboard', '/capstone', '/proposal'],
- koprodi: ['/dashboard', '/capstone', '/guidance'],
+ koprodi: ['/dashboard', '/capstone', '/proposal', '/sempro', '/reports', '/account'],
+ proposalStudent1: ['/proposal', '/sempro'],
+ admin: ['/dashboard', '/groups', '/admin/users', '/admin/interests', '/admin/master', '/capstone', '/guidance', '/proposal', '/documents', '/sempro', '/final-exam', '/expo', '/assistant', '/reports', '/account'],
+ student1: ['/dashboard', '/groups', '/capstone', '/guidance', '/proposal', '/documents', '/sempro', '/final-exam', '/expo', '/assistant', '/capstone/' + fixtures.project.id],
+ outsider: ['/dashboard', '/groups', '/capstone/new', '/expo', '/assistant'],
+ lecturer1: ['/account', '/proposal', '/dashboard', '/groups', '/capstone', '/guidance', '/documents', '/sempro', '/final-exam', '/expo', '/assistant', '/capstone/' + fixtures.project.id],
+ coordinator: ['/dashboard', '/groups', '/finalization', '/admin/interests', '/admin/master', '/capstone', '/guidance', '/proposal', '/documents', '/sempro', '/final-exam', '/expo', '/assistant', '/reports', '/capstone/' + fixtures.project.id],
+ tu: ['/dashboard', '/capstone', '/proposal', '/documents', '/sempro', '/final-exam', '/expo', '/assistant', '/reports'],
+ lecturerCoordinator: ['/dashboard', '/groups', '/capstone', '/guidance', '/finalization', '/documents', '/sempro', '/final-exam', '/expo', '/assistant', '/reports'],
 }
 let count = 0
 for (const [role, routes] of Object.entries(paths)) {
@@ -22,10 +24,18 @@ for (const [role, routes] of Object.entries(paths)) {
   count++
  }
 }
+const publicLanding = await fetch(base + '/', { redirect: 'manual' })
+assert.equal(publicLanding.status, 200, 'Landing page publik harus dapat diakses tanpa login')
+const publicHtml = await publicLanding.text()
+assert.ok(publicHtml.includes('<h1'), 'Landing page publik harus memuat heading utama')
+assert.ok(publicHtml.includes('Pameran Karya'), 'Landing page publik harus menampilkan Pameran Karya Capstone')
 const blocked = await fetch(base + '/finalization', { headers: { Cookie: fixtures.accounts.tu.cookie }, redirect: 'manual' })
 const font = await fetch(base + '/fonts/urbanist-latin.woff2')
 assert.equal(font.status, 200, 'Font Urbanist harus tersedia pada build produksi')
 assert.equal(Buffer.from(await font.arrayBuffer()).subarray(0, 4).toString(), 'wOF2')
+const koprodiBlocked = await fetch(base + '/finalization', { headers: { Cookie: fixtures.accounts.koprodi.cookie }, redirect: 'manual' }); assert.ok([302, 307].includes(koprodiBlocked.status))
+const proposalPage = await (await fetch(base + '/proposal', { headers: { Cookie: fixtures.accounts.proposalStudent1.cookie } })).text(); for (const label of ['Sertifikat kemampuan bahasa Inggris', 'Dokumen B100', 'Dokumen B200', '6 berkas valid']) assert.ok(proposalPage.includes(label), label)
+const examPage = await (await fetch(base + '/sempro', { headers: { Cookie: fixtures.accounts.proposalStudent1.cookie } })).text(); assert.ok(examPage.includes('72.00')); assert.ok(examPage.includes('Cetak presensi')); assert.ok(examPage.includes('Cetak berita acara'))
 assert.ok([302, 307].includes(blocked.status)); assert.match(blocked.headers.get('location'), /capstone/)
 const unauthenticated = await fetch(base + '/guidance', { redirect: 'manual' })
 assert.ok([302, 307].includes(unauthenticated.status)); assert.match(unauthenticated.headers.get('location'), /login/)
