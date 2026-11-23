@@ -248,6 +248,7 @@ for (const ex of ['lecturer3', 'examiner2', 'lecturerCoordinator']) {
 const feRow = (await json(a + '/final-exam?project_id=' + p.id, { cookie: accounts.coordinator.cookie })).items[0].exam
 await request(a + '/final-exam/' + feCreated.id + '/decision', { method: 'POST', cookie: accounts.coordinator.cookie, expected: 204, body: { status: 'PASSED', note: 'Lulus Ujian Akhir tanpa mengulang.', version: feRow.version } })
 { const r = await request(a + '/final-exam/' + feCreated.id + '/report', { cookie: accounts.tu.cookie }); const bytes = Buffer.from(await r.arrayBuffer()); assert.equal(bytes.subarray(0, 5).toString(), '%PDF-'); await writeFile(resolve(root, 'infrastructure/.run/artifacts/berita-acara-ujian-akhir.pdf'), bytes) }
+{ const rAtt = await request(a + '/final-exam/' + feCreated.id + '/report?kind=attendance', { cookie: accounts.tu.cookie }); const bAtt = Buffer.from(await rAtt.arrayBuffer()); assert.equal(bAtt.subarray(0, 5).toString(), '%PDF-'); await writeFile(resolve(root, 'infrastructure/.run/artifacts/presensi-ujian-akhir.pdf'), bAtt) }
 
 // Verifikasi deaktivasi massal mahasiswa: ditolak (422) bagi belum lulus & berhasil (200) bagi lulus Ujian Akhir
 await request('/api/v1/users/batch-status', { method: 'PATCH', cookie: accounts.admin.cookie, body: { user_ids: [accounts.outsider.id], is_active: false }, expected: 422 })
@@ -261,6 +262,9 @@ const expoLoaded = (await json(a + '/expo', { cookie: accounts.admin.cookie })).
 await request(a + '/expo/' + expoCreated.id + '/review', { method: 'PUT', cookie: accounts.admin.cookie, expected: 204, body: { status: 'PUBLISHED', note: 'Disetujui terbit di Galeri Expo.', version: expoLoaded.version } })
 const gallery = await json(a + '/expo?published=true', { cookie: accounts.outsider.cookie })
 assert.equal(gallery.items.length, 1)
+const pubExpo = await json(a + '/public/expo')
+assert.equal(pubExpo.items.length, 1); assert.equal(pubExpo.items[0].id, expoCreated.id)
+{ const rPub = await request(a + '/public/expo/' + expoCreated.id + '/poster'); assert.equal(Buffer.from(await rPub.arrayBuffer()).subarray(0, 5).toString(), '%PDF-') }
 
 // SOP-019: Asisten Pedoman RAG (Terjawab dengan rujukan & penolakan di luar konteks + kelola sumber)
 const ragOk = await json(a + '/assistant/chat', { method: 'POST', cookie: accounts.student1.cookie, body: { question: 'Berapa minimal SKS lulus dan similarity Turnitin untuk Ujian Akhir?' } })

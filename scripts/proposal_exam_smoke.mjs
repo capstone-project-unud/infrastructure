@@ -165,5 +165,14 @@ export async function verifyProposalRevision({ root, accounts, request, json, up
  }
  assert.equal((await json(a + '/dashboard', { cookie: accounts.proposalStudent1.cookie })).stats.sempro_approved, 1)
  assert.equal((await json(a + '/dashboard', { cookie: accounts.proposalStudent2.cookie })).stats.sempro_scheduled, 1)
+ await request(a + '/guidance', { cookie: accounts.koprodi.cookie })
+ const semproRev = await json(a + '/revisions', { method: 'POST', cookie: accounts.lecturer3.cookie, expected: 201, body: { stage: 'SEMPRO', seminar_id: ex1.id, project_id: p.id, student_id: accounts.proposalStudent1.id, note: 'Perjelas blok diagram metode usulan.' } })
+ const loadedRev1 = (await exam('proposalStudent1', ex1.id)).revision_items.find(r => r.id === semproRev.id)
+ await request(a + '/revisions/' + semproRev.id + '/respond', { method: 'PUT', cookie: accounts.proposalStudent1.cookie, expected: 204, body: { student_response: 'Blok diagram telah diperbarui pada naskah proposal.', version: loadedRev1.version } })
+ const loadedRev2 = (await exam('proposalStudent1', ex1.id)).revision_items.find(r => r.id === semproRev.id)
+ await request(a + '/revisions/' + semproRev.id + '/review', { method: 'PUT', cookie: accounts.lecturer3.cookie, expected: 204, body: { status: 'APPROVED', reviewer_note: 'Revisi memadai.', version: loadedRev2.version } })
+ const signedSheet = await upload('proposalStudent1', 'pengesahan-revisi-sempro-individu.pdf')
+ firstExam = await exam('proposalStudent1', ex1.id)
+ await request(a + '/proposal-exams/' + ex1.id + '/revision-approval', { method: 'POST', cookie: accounts.proposalStudent1.cookie, expected: 204, body: { file_id: signedSheet, version: firstExam.version } })
  console.log('PASS: revisi proposal individu, enam berkas, filter/Excel, panel per mahasiswa, otorisasi, tanda tangan privat, aturan versi, nilai lengkap lima dosen, serta tujuh dokumen PDF.')
 }
